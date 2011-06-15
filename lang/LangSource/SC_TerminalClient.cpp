@@ -58,8 +58,14 @@
 #include "VMGlobals.h"
 #include "SC_DirUtils.h"   // for gIdeName
 #include "SC_LibraryConfig.h"
+#include "SC_LangPluginWorld.h"
+#include "PyrIntfTable.h"
 
 #define STDIN_FD 0
+
+PyrInterfaceTable gLangIntf;
+
+using namespace SC::Lang;
 
 static FILE* gPostDest = stdout;
 
@@ -226,6 +232,18 @@ bool SC_TerminalClient::parseOptions(int& argc, char**& argv, Options& opt)
 	return false;
 }
 
+static void SC_TerminalClient_tick() {
+	SC_LanguageClient::instance()->tick();
+}
+
+static void SC_TerminalClient_readCmdLine() {
+	static_cast<SC_TerminalClient*>(SC_LanguageClient::instance())->readCmdLine();
+}
+
+static bool SC_TerminalClient_shouldBeRunning() {
+	return static_cast<SC_TerminalClient*>(SC_LanguageClient::instance())->shouldBeRunning();
+}
+
 int SC_TerminalClient::run(int argc, char** argv)
 {
 	Options& opt = mOptions;
@@ -256,6 +274,11 @@ int SC_TerminalClient::run(int argc, char** argv)
 	} else
 		SC_LanguageConfig::readDefaultLibraryConfig();
 
+	SC::Lang::initInterfaceTable( gLangIntf );
+	gLangIntf.mTick = &SC_TerminalClient_tick;
+	gLangIntf.mReadCmdLine = &SC_TerminalClient_readCmdLine;
+	gLangIntf.mShouldBeRunning = &SC_TerminalClient_shouldBeRunning;
+
 	// initialize runtime
 	initRuntime(opt);
 
@@ -273,7 +296,18 @@ int SC_TerminalClient::run(int argc, char** argv)
 	else {
 		initInput();
 		if( shouldBeRunning() ) startInput();
-		if( shouldBeRunning() ) commandLoop();
+		if( shouldBeRunning() ) {
+			const MainPlugin *plugin = 0;
+#ifdef SC_LANG_MAIN_PLUGIN
+			Plugin *aPlugin = SC_LangPluginWorld::get(SC_LANG_MAIN_PLUGIN);
+			if (aPlugin && aPlugin->type == Plugin::Main)
+				plugin = static_cast<MainPlugin*>(aPlugin);
+#endif
+			if (plugin)
+				startMainPlugin(plugin);
+			else
+				commandLoop();
+		}
 		endInput();
 		cleanupInput();
 	}
@@ -879,4 +913,11 @@ int SC_TerminalClient::prRecompile(struct VMGlobals *, int)
 	static_cast<SC_TerminalClient*>(instance())->sendSignal(sig_recompile);
 	return errNone;
 }
+
+void SC_TerminalClient::startMainPlugin(const MainPlugin *plugin)
+{
+	post("\nUsing main plugin: %s\n", plugin->name);
+	(*plugin->run)();
+}
+
 // EOF

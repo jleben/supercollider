@@ -78,6 +78,8 @@ set(scapp_sources
 	${CMAKE_SOURCE_DIR}/lang/LangSource/SimpleStack.cpp
 	${CMAKE_SOURCE_DIR}/lang/LangSource/VMGlobals.cpp
 	${CMAKE_SOURCE_DIR}/lang/LangSource/dumpByteCodes.cpp
+	${CMAKE_SOURCE_DIR}/lang/LangSource/SC_LangPluginIntf.cpp
+	${CMAKE_SOURCE_DIR}/lang/LangSource/SC_LangPluginWorld.cpp
 	${CMAKE_SOURCE_DIR}/lang/LangPrimSource/WiiMote_OSX/wiiremote.c
 	${CMAKE_SOURCE_DIR}/lang/LangPrimSource/SC_HID.cpp
 	${CMAKE_SOURCE_DIR}/lang/LangPrimSource/${HID_UTIL_DIR}/HID_Utilities.c

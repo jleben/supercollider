@@ -26,51 +26,13 @@ This file contains the definitions of the core objects that implement the class 
 #ifndef _PYRKERNEL_H_
 #define _PYRKERNEL_H_
 
+#include <PyrKernel_bare.h>
 #include "PyrObject.h"
 #include "VMGlobals.h"
 
 #define classClassNumInstVars 19
 
 enum { classIsIntrinsic = 1, classHasIndexableInstances = 2 };
-
-struct PyrClass : public PyrObjectHdr
-{
-	PyrSlot name;
-	PyrSlot nextclass;
-	PyrSlot superclass;
-	PyrSlot subclasses;
-	PyrSlot methods;
-
-	PyrSlot instVarNames;
-	PyrSlot classVarNames;
-	PyrSlot iprototype;		// instance prototype
-	PyrSlot cprototype;		// class var prototype
-
-	PyrSlot constNames;
-	PyrSlot constValues;	// const values
-
-	PyrSlot instanceFormat;
-	PyrSlot instanceFlags;
-	PyrSlot classIndex;
-	PyrSlot classFlags;
-	PyrSlot maxSubclassIndex; // used by isKindOf
-	PyrSlot filenameSym;
-	PyrSlot charPos;
-	PyrSlot classVarIndex;
-};
-
-
-
-inline bool isKindOf(PyrObjectHdr *obj, struct PyrClass *testclass)
-{
-	int objClassIndex = slotRawInt(&obj->classptr->classIndex);
-	return objClassIndex >= slotRawInt(&testclass->classIndex) && objClassIndex <= slotRawInt(&testclass->maxSubclassIndex);
-}
-
-inline bool isKindOfSlot(PyrSlot *slot, struct PyrClass *testclass)
-{
-	return IsObj(slot) && isKindOf(slotRawObject(slot), testclass);
-}
 
 /*
 	operations on class:

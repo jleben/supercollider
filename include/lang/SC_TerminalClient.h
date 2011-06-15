@@ -28,6 +28,7 @@
 
 #include "SC_LanguageClient.h"
 #include "SC_StringBuffer.h"
+#include <SC_Lang_Plugin.h>
 
 // =====================================================================
 // SC_TerminalClient - command line sclang client.
@@ -145,6 +146,8 @@ private:
 	// helpers
 	void lockSignal() { pthread_mutex_lock(&mSignalMutex); }
 	void unlockSignal() { pthread_mutex_unlock(&mSignalMutex); }
+
+	void startMainPlugin(const SC::Lang::MainPlugin *);
 
 	bool				mShouldBeRunning;
 	int					mReturnCode;

@@ -47,7 +47,8 @@
 #include "InitAlloc.h"
 #include "SC_LibraryConfig.h"
 #include "SC_DirUtils.h"
-
+#include "SC_LangPluginWorld.h"
+#include "PyrIntfTable.h"
 
 #ifdef SC_WIN32
 # include <direct.h>
@@ -60,6 +61,9 @@
 #endif
 
 #include "SCDocPrim.h"
+
+using namespace std;
+using namespace SC::Lang;
 
 int yyparse();
 
@@ -86,6 +90,7 @@ extern PrimitiveTable gPrimitiveTable;
 
 extern PyrSlot o_nullframe;
 
+extern PyrInterfaceTable gLangIntf;
 
 int getPrimitiveNumArgs(int index)
 {
@@ -3868,6 +3873,13 @@ void doPrimitiveWithKeys(VMGlobals* g, PyrMethod* meth, int allArgsPushed, int n
 #endif
 }
 
+void pluginDefinePrimitive
+(const char *name, PrimitiveHandler handler, int numArgs, int varArgs)
+{
+	int i = nextPrimitiveIndex();
+	definePrimitive(i, 0, name, handler, numArgs, varArgs);
+}
+
 void initPrimitives()
 {
 	int base, index;
@@ -4221,6 +4233,20 @@ void initOpenGLPrimitives();
 #endif
 
 initSCDocPrimitives();
+
+	SC_LangPluginWorld::loadAll();
+
+	PluginIntf pluginIntf( &gLangIntf );
+
+	SC_LangPluginWorld::PluginVector::iterator it;
+	for (it = SC_LangPluginWorld::plugins.begin();
+		it < SC_LangPluginWorld::plugins.end();
+		++it)
+	{
+		Plugin *plugin = *it;
+		if (plugin->startup) (*plugin->startup)(pluginIntf);
+		(*plugin->initPrimitives)();
+	}
 
 	s_recvmsg = getsym("receiveMsg");
 	post("\tNumPrimitives = %d\n", nextPrimitiveIndex());

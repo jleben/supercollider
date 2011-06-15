@@ -2,6 +2,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include/common
                     ${CMAKE_SOURCE_DIR}/include/lang
                     ${CMAKE_SOURCE_DIR}/include/plugin_interface
                     ${CMAKE_SOURCE_DIR}/include/server
+                    ${CMAKE_SOURCE_DIR}/include/lang_plugin_interface
                     ${CMAKE_SOURCE_DIR}/external_libraries/boost_lockfree
                     ${CMAKE_SOURCE_DIR}/external_libraries/boost
                     ${CMAKE_SOURCE_DIR}/external_libraries/threadpool
@@ -61,6 +62,8 @@ set(sclang_sources
 	LangSource/SimpleStack.cpp
 	LangSource/VMGlobals.cpp
 	LangSource/dumpByteCodes.cpp
+	LangSource/SC_LangPluginWorld.cpp
+	LangSource/SC_Lang_API.cpp
 
 	${CMAKE_SOURCE_DIR}/common/fftlib.c
 	${CMAKE_SOURCE_DIR}/common/SC_AllocPool.cpp
@@ -171,6 +174,22 @@ if(SC_QT)
 	list(APPEND sclang_sources ${QT_COLLIDER_SRCS})
 endif()
 
+if (NOT SCLANG_PLUGIN_DIR)
+	set(SCLANG_PLUGIN_DIR ${CMAKE_INSTALL_PREFIX}/lib/SuperCollider/lang_plugins)
+endif ()
+
+message(STATUS "sclang: plugin path = ${SCLANG_PLUGIN_DIR}")
+message(STATUS "sclang: main plugin = ${SCLANG_MAIN_PLUGIN}")
+
+add_definitions(-DSC_LANG_MAIN_PLUGIN="${SCLANG_MAIN_PLUGIN}")
+
+set_property(SOURCE LangSource/SC_LangPluginWorld.cpp
+	APPEND PROPERTY COMPILE_DEFINITIONS
+	SC_LANG_PLUGIN_DIR="${SCLANG_PLUGIN_DIR}"
+	SC_LANG_PLUGIN_PREFIX="${CMAKE_SHARED_LIBRARY_PREFIX}"
+	SC_LANG_PLUGIN_SUFFIX="${CMAKE_SHARED_LIBRARY_SUFFIX}"
+)
+
 if(0 AND FINAL_BUILD) # sclang final-builds are broken
 	CREATE_FINAL_FILE(libsclang_final.cpp ${sclang_sources})
 	add_library(libsclang SHARED libsclang_final.cpp ${sclang_parser_source})
@@ -259,9 +278,14 @@ endif()
 
 target_link_libraries(libsclang ${PTHREADS_LIBRARY} supercollider_boost_thread)
 
+if (NOT WIN32)
+	target_link_libraries(libsclang dl)
+endif()
+
 if(SC_QT)
 	target_link_libraries(libsclang ${QT_COLLIDER_LIBS})
 endif()
+
 
 add_executable(sclang LangSource/cmdLineFuncs.cpp)
 target_link_libraries(sclang libsclang boost_thread)
