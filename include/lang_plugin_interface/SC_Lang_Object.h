@@ -15,15 +15,21 @@
 namespace SC {
 namespace Lang {
 
+inline bool ObjectBase::operator== ( const ObjectBase & other ) const
+{
+	return mHdr == other.mHdr;
+}
 inline bool ObjectBase::isValid() const { return mHdr != 0; }
 inline Class ObjectBase::type() const { return Class( mHdr->classptr ); }
 inline bool ObjectBase::isKindOf( const Class &c ) const {
 	return ::isKindOf( mHdr, c.ptr() );
 }
 inline int ObjectBase::size() const { return mHdr->size; }
-inline bool ObjectBase::operator== ( const ObjectBase & other ) const
+inline void ObjectBase::setSize( int size )
 {
-	return mHdr == other.mHdr;
+	assert( isValid() );
+	assert( mHdr->obj_format != obj_notindexed );
+	mHdr->size = size;
 }
 inline void ObjectBase::grow()
 {

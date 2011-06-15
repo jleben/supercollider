@@ -28,11 +28,12 @@ class ObjectBase
 	friend class State;
 public:
 	ObjectBase() : mHdr(0) {}
+	bool operator== ( const ObjectBase & other ) const;
 	bool isValid() const;
 	Class type() const;
 	bool isKindOf( const Class & ) const;
 	int size() const;
-	bool operator== ( const ObjectBase & other ) const;
+	void setSize( int );
 	void grow();
 	void shrink();
 protected:
