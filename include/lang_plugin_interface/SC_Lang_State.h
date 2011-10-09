@@ -43,7 +43,7 @@ public:
 	State & operator<< ( bool val ) { ++_stackc; SetBool( ++_vm->sp, val ); return *this; }
 	State & operator<< ( const Symbol & val ) { ++_stackc; SetSymbol( ++_vm->sp, val.x ); return *this; }
 	State & operator<< ( const ObjectBase & val ) { ++_stackc; SetObject( ++_vm->sp, val.mHdr ); return *this; }
-	State & operator<< ( void * val ) { ++_stackc; SetPtr( ++_vm->sp, val ); }
+	State & operator<< ( void * val ) { ++_stackc; SetPtr( ++_vm->sp, val ); return *this; }
 
 	inline Slot operator * () { return Slot( _vm->sp ); }
 	inline State & operator ++ () { ++_stackc; SetNil( ++_vm->sp ); return *this; }
