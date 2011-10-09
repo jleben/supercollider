@@ -1,8 +1,10 @@
 #include "SC_LangPluginWorld.h"
+#include "SC_LibraryConfig.h"
 #include "SC_DirUtils.h"
 #include "SCBase.h"
 
 #include <string.h>
+#include <string>
 #ifdef _WIN32
 # include <windows.h>
 #else
@@ -15,9 +17,16 @@ SC_LangPluginWorld::PluginVector SC_LangPluginWorld::plugins;
 
 void SC_LangPluginWorld::loadAll()
 {
-#ifdef SC_LANG_PLUGIN_DIR
-	loadDir(SC_LANG_PLUGIN_DIR);
-#endif
+	if( !gLibraryConfig ) {
+		error("No language configuration. Not loading plugins.\n");
+	}
+	else {
+		std::string pluginDir = gLibraryConfig->pluginDirectory();
+		if( pluginDir.size() < 1 )
+			error("No plugin directory configured. Not loading plugins.\n");
+		else
+			loadDir( pluginDir.c_str() );
+	}
 }
 
 void SC_LangPluginWorld::loadDir (const char *dirName)
@@ -41,15 +50,26 @@ void SC_LangPluginWorld::loadDir (const char *dirName)
 
 Plugin *SC_LangPluginWorld::load (const char *pluginName)
 {
-#ifdef SC_LANG_PLUGIN_DIR
-	char filename[MAXPATHLEN] = SC_LANG_PLUGIN_DIR;
+	std::string pluginDir;
+	if( !gLibraryConfig ) {
+		error("No language configuration. Can not load plugin '%s'\n", pluginName);
+		return 0;
+	}
+	else {
+		pluginDir = gLibraryConfig->pluginDirectory();
+		if( pluginDir.size() < 1 ) {
+			error("No plugin directory configured. Can not load plugin '%s'\n", pluginName);
+			return 0;
+		}
+	}
+
+	char filename[MAXPATHLEN];
+	filename[0] = '0';
+	strcat( filename, pluginDir.c_str() );
 	char file[MAXPATHLEN];
 	sprintf(file, "%s%s%s", SC_LANG_PLUGIN_PREFIX, pluginName, SC_LANG_PLUGIN_SUFFIX);
 	sc_AppendToPath(filename, file);
 	return loadFile(filename);
-#else
-	post( "No language plugin directory given. Can not load plugin '%s' by name!", pluginName );
-#endif
 }
 
 Plugin *SC_LangPluginWorld::loadFile (const char *filename)

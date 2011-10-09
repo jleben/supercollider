@@ -286,14 +286,12 @@ int SC_TerminalClient::run(int argc, char** argv)
 		initInput();
 		if( shouldBeRunning() ) startInput();
 		if( shouldBeRunning() ) {
-			const MainPlugin *plugin = 0;
-#ifdef SC_LANG_MAIN_PLUGIN
-			Plugin *aPlugin = SC_LangPluginWorld::get(SC_LANG_MAIN_PLUGIN);
-			if (aPlugin && aPlugin->type == Plugin::Main)
-				plugin = static_cast<MainPlugin*>(aPlugin);
-#endif
-			if (plugin)
-				startMainPlugin(plugin);
+			const Plugin *plugin = 0;
+			std::string pluginName = gLibraryConfig->mainPlugin();
+			if( pluginName.size() > 0 )
+				plugin = SC_LangPluginWorld::get( pluginName.c_str() );
+			if (plugin && plugin->type == Plugin::Main)
+				startMainPlugin(static_cast<const MainPlugin*>(plugin));
 			else
 				commandLoop();
 		}

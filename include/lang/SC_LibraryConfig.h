@@ -81,6 +81,8 @@ public:
 
 	const DirVector& includedDirectories() { return mIncludedDirectories; }
 	const DirVector& excludedDirectories() { return mExcludedDirectories; }
+	std::string pluginDirectory() { return mPluginDir; }
+	std::string mainPlugin() { return mMainPlugin; }
 
 	void postExcludedDirectories(void);
 	bool forEachIncludedDirectory(bool (*func)(const char *, int));
@@ -100,9 +102,14 @@ public:
 	static bool defaultLibraryConfig(void);
 	static bool readDefaultLibraryConfig();
 
+	static std::string defaultPluginDirectory();
+	static std::string defaultMainPlugin();
+
 private:
 	DirVector mIncludedDirectories;
 	DirVector mExcludedDirectories;
+	std::string mPluginDir;
+	std::string mMainPlugin;
 };
 
 extern SC_LanguageConfig* gLibraryConfig;

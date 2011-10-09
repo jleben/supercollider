@@ -171,6 +171,26 @@ bool SC_LanguageConfig::readLibraryConfigYAML(const char* fileName)
 				}
 			}
 
+			const Node * pluginDir = doc.FindValue("pluginPath");
+			if( pluginDir && pluginDir->Type() == NodeType::Scalar ) {
+				string dir;
+				pluginDir->GetScalar(dir);
+				gLibraryConfig->mPluginDir = dir;
+			}
+			else {
+				gLibraryConfig->mPluginDir = defaultPluginDirectory();
+			}
+
+			const Node * mainPlugin = doc.FindValue("mainPlugin");
+			if( mainPlugin && mainPlugin->Type() == NodeType::Scalar ) {
+				string plugin;
+				mainPlugin->GetScalar(plugin);
+				gLibraryConfig->mMainPlugin = plugin;
+			}
+			else {
+				gLibraryConfig->mMainPlugin = defaultMainPlugin();
+			}
+
 			const Node * inlineWarnings = doc.FindValue("postInlineWarnings");
 			if (inlineWarnings) {
 				try {
@@ -243,6 +263,10 @@ bool SC_LanguageConfig::defaultLibraryConfig(void)
 		sc_GetUserExtensionDirectory(userExtensionDir, MAXPATHLEN);
 		gLibraryConfig->addIncludedDirectory(userExtensionDir);
 	}
+
+	gLibraryConfig->mPluginDir = defaultPluginDirectory();
+	gLibraryConfig->mMainPlugin = defaultMainPlugin();
+
 	return true;
 }
 
@@ -306,6 +330,23 @@ bool SC_LanguageConfig::readDefaultLibraryConfig()
 	return false;
 }
 
+std::string SC_LanguageConfig::defaultPluginDirectory()
+{
+#ifdef SC_LANG_PLUGIN_DIR
+	return SC_LANG_PLUGIN_DIR;
+#else
+	return std::string();
+#endif
+}
+
+std::string SC_LanguageConfig::defaultMainPlugin()
+{
+#ifdef SC_LANG_MAIN_PLUGIN
+	return SC_LANG_MAIN_PLUGIN;
+#else
+	return std::string();
+#endif
+}
 
 void SC_LanguageConfig::freeLibraryConfig()
 {
