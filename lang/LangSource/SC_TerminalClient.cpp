@@ -232,18 +232,6 @@ bool SC_TerminalClient::parseOptions(int& argc, char**& argv, Options& opt)
 	return false;
 }
 
-static void SC_TerminalClient_tick() {
-	SC_LanguageClient::instance()->tick();
-}
-
-static void SC_TerminalClient_readCmdLine() {
-	static_cast<SC_TerminalClient*>(SC_LanguageClient::instance())->readCmdLine();
-}
-
-static bool SC_TerminalClient_shouldBeRunning() {
-	return static_cast<SC_TerminalClient*>(SC_LanguageClient::instance())->shouldBeRunning();
-}
-
 int SC_TerminalClient::run(int argc, char** argv)
 {
 	Options& opt = mOptions;
@@ -275,9 +263,10 @@ int SC_TerminalClient::run(int argc, char** argv)
 		SC_LanguageConfig::readDefaultLibraryConfig();
 
 	SC::Lang::initInterfaceTable( gLangIntf );
-	gLangIntf.mTick = &SC_TerminalClient_tick;
-	gLangIntf.mReadCmdLine = &SC_TerminalClient_readCmdLine;
-	gLangIntf.mShouldBeRunning = &SC_TerminalClient_shouldBeRunning;
+	// FIXME:
+	gLangIntf.mTick = 0;
+	gLangIntf.mReadCmdLine = 0;
+	gLangIntf.mShouldBeRunning = 0;
 
 	// initialize runtime
 	initRuntime(opt);
