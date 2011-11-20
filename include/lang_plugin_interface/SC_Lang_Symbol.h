@@ -29,6 +29,7 @@ public:
 	bool isValid() const { return x != 0; }
 	const char *name () const { assert(isValid()); return x->name; };
 	bool operator== ( const Symbol & other ) const { return ( x == other.x ); }
+	bool operator< ( const Symbol & other ) const { return ( x < other.x ); }
 private:
 	Symbol( PyrSymbol *sym ) : x(sym) {};
 	PyrSymbol *x;
