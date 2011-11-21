@@ -2,6 +2,7 @@
 #define SC_LANG_OBJECT_DECL_H
 
 #include <stdint.h>
+#include <string>
 
 struct PyrObjectHdr;
 struct PyrObject;
@@ -75,7 +76,9 @@ class String : public ObjectBase
 	friend class Sys;
 public:
 	String() {}
-	const char *c_str() const;
+	const char *data() const;
+	char *data();
+	std::string stdString() const;
 private:
 	String( PyrString * );
 };

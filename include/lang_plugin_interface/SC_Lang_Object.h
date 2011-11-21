@@ -75,7 +75,9 @@ inline Slot Object::operator[] ( int i ) { return slotAt(i); }
 //-------------------------------------------
 
 inline String::String( PyrString *str ) : ObjectBase( str ) {};
-inline const char *String::c_str() const { return static_cast<PyrString*>(mHdr)->s; }
+inline const char *String::data() const { return static_cast<PyrString*>(mHdr)->s; }
+inline char *String::data() { return static_cast<PyrString*>(mHdr)->s; }
+inline std::string String::stdString() const { return std::string(data(),size()); }
 
 //-------------------------------------------
 
