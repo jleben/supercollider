@@ -68,7 +68,7 @@ Plugin *SC_LangPluginWorld::load (const char *pluginName)
 	strcat( filename, pluginDir.c_str() );
 	char file[MAXPATHLEN];
 	sprintf(file, "%s%s%s", SC_LANG_PLUGIN_PREFIX, pluginName, SC_LANG_PLUGIN_SUFFIX);
-	sc_AppendToPath(filename, file);
+	sc_AppendToPath(filename, MAXPATHLEN, file);
 	return loadFile(filename);
 }
 
