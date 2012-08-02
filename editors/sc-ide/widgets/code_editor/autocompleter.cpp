@@ -203,8 +203,16 @@ void AutoCompleter::onContentsChange( int pos, int removed, int added )
             QTextBlock block( document()->findBlock(mCompletion.pos) );
             TokenIterator it( block, mCompletion.pos - block.position() );
             Token::Type type = it.type();
-            mCompletion.len =
-                (type == Token::Name || type == Token::Class) ? it->length : 0;
+            if (type == Token::Name || type == Token::Class) {
+                mCompletion.len = it->length;
+                QString text = tokenText(it);
+                text.prepend("^");
+                mCompletion.model->setFilterRegExp(text);
+            }
+            else {
+                mCompletion.len = 0;
+                mCompletion.model->setFilterRegExp(QString());
+            }
         }
     }
 }
