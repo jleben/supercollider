@@ -38,17 +38,6 @@
 
 namespace ScIDE {
 
-class CompletionListView : public QListView
-{
-    void keyPressEvent( QKeyEvent * e )
-    {
-        if (!e->text().isEmpty() || e->key() == Qt::Key_Delete)
-            e->ignore();
-        else
-            QListView::keyPressEvent(e);
-    }
-};
-
 class CompletionMenu : public PopUpWidget
 {
 public:
@@ -59,7 +48,7 @@ public:
         mFilterModel = new QSortFilterProxyModel(this);
         mFilterModel->setSourceModel(mModel);
 
-        mListView = new CompletionListView();
+        mListView = new QListView();
         mListView->setModel(mFilterModel);
         mListView->setFrameShape(QFrame::NoFrame);
 
@@ -80,24 +69,32 @@ public:
         mModel->appendRow( new QStandardItem(text) );
     }
 
+    QString currentText()
+    {
+        QStandardItem *item =
+            mModel->itemFromIndex (
+                mFilterModel->mapToSource (
+                    mListView->currentIndex()));
+        if (item)
+            return item->text();
+
+        return QString();
+    }
+
     QString exec( const QPoint & pos )
     {
         QString result;
         QPointer<CompletionMenu> self = this;
         if (PopUpWidget::exec(pos)) {
-            if (!self.isNull()) {
-                QStandardItem *item =
-                    mModel->itemFromIndex (
-                        mFilterModel->mapToSource (
-                            mListView->currentIndex()));
-                if (item)
-                    result = item->text();
-            }
+            if (!self.isNull())
+                result = currentText();
         }
         return result;
     }
 
     QSortFilterProxyModel *model() { return mFilterModel; }
+
+    QListView *view() { return mListView; }
 
 private:
     QListView *mListView;
@@ -118,11 +115,28 @@ AutoCompleter::AutoCompleter( CodeEditor *editor ):
             this, SLOT(onResponse(QString,QString)));
 }
 
-bool AutoCompleter::eventFilter( QObject *, QEvent *e )
+bool AutoCompleter::eventFilter( QObject *, QEvent *ev )
 {
-    if (e->type() == QEvent::KeyPress) {
-        QApplication::sendEvent( mEditor, e );
-        return true;
+    if (ev->type() == QEvent::KeyPress) {
+        QKeyEvent *kev = static_cast<QKeyEvent*>(ev);
+        switch(kev->key())
+        {
+        case Qt::Key_Backspace:
+            mEditor->textCursor().deletePreviousChar();
+            return true;
+        case Qt::Key_Delete:
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+        case Qt::Key_Escape:
+            return false;
+        }
+
+        QString text = kev->text();
+        if (!text.isEmpty()) {
+            mEditor->textCursor().insertText(text);
+            keyPress(kev);
+            return true;
+        }
     }
     return false;
 }
@@ -147,6 +161,9 @@ void AutoCompleter::keyPress( QKeyEvent *e )
     case Qt::Key_Comma:
         aidMethodCall();
         break;
+    case Qt::Key_Backspace:
+    case Qt::Key_Delete:
+        return;
     default:
         qDebug("key");
         if (!e->text().isEmpty() && !mCompletion.on)
@@ -179,14 +196,15 @@ void AutoCompleter::onContentsChange( int pos, int removed, int added )
     {
         if(pos < mCompletion.contextPos)
         {
-            mCompletion.on = false;
-            qDebug("completion OFF (context changed)");
+            quitCompletion("context changed");
         }
         else if(pos <= mCompletion.pos + mCompletion.len)
         {
             QTextBlock block( document()->findBlock(mCompletion.pos) );
             TokenIterator it( block, mCompletion.pos - block.position() );
-            mCompletion.len = it.type() == Token::Name ? it->length : 0;
+            Token::Type type = it.type();
+            mCompletion.len =
+                (type == Token::Name || type == Token::Class) ? it->length : 0;
         }
     }
 }
@@ -200,8 +218,7 @@ void AutoCompleter::onCursorChanged()
         if (cursorPos < mCompletion.pos ||
             cursorPos > mCompletion.pos + mCompletion.len)
         {
-            mCompletion.on = false;
-            qDebug("completion OFF (out of bounds)");
+            quitCompletion("out of bounds");
         }
     }
 }
@@ -301,6 +318,14 @@ void AutoCompleter::startCompletion()
     qDebug() << "completion ON";
     qDebug() << "sending request:" << command << text;
     mScRequest->send( command, text );
+}
+
+void AutoCompleter::quitCompletion( const QString & reason )
+{
+    qDebug() << QString("Completion OFF (%1)").arg(reason);
+    mCompletion.on = false;
+    if (mCompletion.menu)
+        mCompletion.menu->reject();
 }
 
 void AutoCompleter::aidMethodCall()
@@ -540,20 +565,26 @@ void AutoCompleter::onResponse( const QString & cmd, const QString & data )
         cmd == "completeMethod" ||
         cmd == "completeClassMethod"))
     {
-        QString text = execCompletionMenu( mCompletion.pos, data );
+        execCompletionMenu( mCompletion.pos, data );
+    }
+}
+
+void AutoCompleter::onCompletionMenuFinished( int result )
+{
+    if (result) {
+        QString text = mCompletion.menu->currentText();
+
         if (!text.isEmpty()) {
             QTextCursor cursor( mEditor->textCursor() );
             cursor.setPosition( mCompletion.pos, QTextCursor::KeepAnchor );
             cursor.insertText(text);
 
-            mCompletion.on = false;
-            qDebug("completion OFF (done)");
-        }
-        else {
-            mCompletion.on = false;
-            qDebug("completion OFF (cancelled)");
+            quitCompletion("done");
+            return;
         }
     }
+
+    quitCompletion("cancelled");
 }
 
 QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
@@ -575,6 +606,7 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
 
     QPointer<CompletionMenu> popup = new CompletionMenu(mEditor);
     mCompletion.model = popup->model();
+    mCompletion.menu = popup;
 
     for (YAML::Iterator it = doc.begin(); it != doc.end(); ++it) {
         YAML::Node const & entry = *it;
@@ -585,7 +617,8 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
 
     qDebug() << "item count = " << doc.size();
 
-    popup->installEventFilter(this);
+    popup->view()->installEventFilter(this);
+    connect(popup, SIGNAL(finished(int)), this, SLOT(onCompletionMenuFinished(int)));
 
     QTextCursor cursor(document());
     cursor.setPosition(cursorPos);

@@ -34,6 +34,7 @@ namespace ScIDE {
 class CodeEditor;
 class TokenIterator;
 class ScRequest;
+class CompletionMenu;
 
 class AutoCompleter : public QObject
 {
@@ -54,6 +55,7 @@ private slots:
     void onContentsChange(int pos, int removed, int added);
     void onCursorChanged();
     void onResponse( const QString & cmd, const QString & data );
+    void onCompletionMenuFinished( int result );
 
 private:
     struct MethodCall {
@@ -74,6 +76,8 @@ private:
     void checkStack( int cursorPos );
 
     void startCompletion();
+    void quitCompletion( const QString & reason = QString() );
+
     QString execCompletionMenu( int cursorPos, const QString & data );
 
     void pushMethodCall( int pos, const QString & name, int arg = 0 );
@@ -90,6 +94,7 @@ private:
         int len;
         int contextPos;
         QPointer<QSortFilterProxyModel> model;
+        QPointer<CompletionMenu> menu;
     } mCompletion;
 
     QStack<MethodCall> mMethodCallStack;
