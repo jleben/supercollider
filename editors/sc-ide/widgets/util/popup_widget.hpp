@@ -70,12 +70,16 @@ public slots:
         quit();
     }
 
+signals:
+    void finished(int result);
+
 private:
     void quit()
     {
         if (mEventLoop) {
             mEventLoop->exit();
             mEventLoop = 0;
+            emit finished(mResult);
         }
     }
 
