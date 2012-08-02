@@ -97,6 +97,54 @@ ScIDE {
 		this.prSend(id, out);
 	}
 
+	*completeClass { |id, text|
+		var out = [];
+		Class.allClasses.do { |class|
+			var name = class.name.asString;
+			if (name.beginsWith(text)) {
+				out = out.add(name);
+			};
+		};
+		if (out.size > 0) {
+			this.prSend(id, out);
+		};
+	}
+
+	*completeClassMethod { |id, text|
+		var class, methods, out;
+		class = text.asSymbol.asClass;
+		if (class.notNil) {
+			methods = IdentityDictionary();
+			while { class.notNil } {
+				class.methods.do { |method|
+					if (methods[method.name].isNil) {
+						methods.put(method.name, method);
+					};
+				};
+				class = class.superclass;
+			};
+			out = methods.values.collect { |m| m.name.asSymbol };
+			out.postln;
+			out.size.postln;
+			if (out.size > 0) { this.prSend(id, out) };
+		}
+	}
+
+	*completeMethod { |id, text|
+		var out;
+		out = [];
+		Class.allClasses.do { |class|
+			class.methods.do { |method|
+				var signature;
+				var definition;
+				if (method.name.asString.beginsWith(text)) {
+					out = out.add( method.name );
+				};
+			};
+		};
+		if (out.size > 0) { this.prSend(id, out) };
+	}
+
 	*prSend {|id, data|
 		_ScIDE_Send
 		this.primitiveFailed
