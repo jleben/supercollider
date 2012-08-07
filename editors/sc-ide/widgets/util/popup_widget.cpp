@@ -34,6 +34,8 @@ int PopUpWidget::exec( const QPoint & pos )
         return Rejected;
     }
 
+    mResult = Rejected;
+
     QEventLoop eventLoop;
     mEventLoop = &eventLoop;
 
@@ -46,6 +48,13 @@ int PopUpWidget::exec( const QPoint & pos )
         return Rejected;
 
     return mResult;
+}
+
+void PopUpWidget::popup( const QPoint & pos )
+{
+    mResult = Rejected;
+    move(pos);
+    show();
 }
 
 void PopUpWidget::keyPressEvent( QKeyEvent *ke )

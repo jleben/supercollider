@@ -51,6 +51,8 @@ public:
 
     int exec( const QPoint & pos );
 
+    void popup( const QPoint & pos );
+
 public slots:
 
     void accept()
@@ -79,7 +81,6 @@ private:
         if (mEventLoop) {
             mEventLoop->exit();
             mEventLoop = 0;
-            emit finished(mResult);
         }
     }
 
@@ -87,6 +88,7 @@ protected:
     virtual void hideEvent( QHideEvent *e )
     {
         quit();
+        emit finished(mResult);
     }
 
     virtual void keyPressEvent( QKeyEvent *ke );
