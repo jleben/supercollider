@@ -266,8 +266,10 @@ void AutoCompleter::startCompletion()
             return;
         mCompletion.pos = it.position();
         mCompletion.len = it->length;
+        mCompletion.text = tokenText(it);
         mCompletion.contextPos = mCompletion.pos + 3;
-        mCompletion.text = contextText = tokenText(it);
+        contextText = mCompletion.text;
+        contextText.truncate(3);
         command = "completeClass";
     }
     else {
@@ -331,10 +333,19 @@ void AutoCompleter::startCompletion()
 
 void AutoCompleter::quitCompletion( const QString & reason )
 {
+    Q_ASSERT(mCompletion.on);
+
     qDebug() << QString("Completion OFF (%1)").arg(reason);
+
+    mScRequest->cancel();
+
+    if (mCompletion.menu) {
+        mCompletion.menu->hide();
+        mCompletion.menu->deleteLater();
+        mCompletion.menu = 0;
+    }
+
     mCompletion.on = false;
-    if (mCompletion.menu)
-        mCompletion.menu->reject();
 }
 
 void AutoCompleter::aidMethodCall()
@@ -574,33 +585,43 @@ void AutoCompleter::onResponse( const QString & cmd, const QString & data )
         cmd == "completeMethod" ||
         cmd == "completeClassMethod"))
     {
-        execCompletionMenu( mCompletion.pos, data );
+        showCompletionMenu( mCompletion.pos, data );
     }
 }
 
 void AutoCompleter::onCompletionMenuFinished( int result )
 {
+    qDebug("completion menu finished");
+
+    if (!mCompletion.on)
+        return;
+
     if (result) {
         QString text = mCompletion.menu->currentText();
 
         if (!text.isEmpty()) {
+            quitCompletion("done");
+
             QTextCursor cursor( mEditor->textCursor() );
-            cursor.setPosition( mCompletion.pos, QTextCursor::KeepAnchor );
+            cursor.setPosition( mCompletion.pos );
+            cursor.setPosition( mCompletion.pos + mCompletion.len, QTextCursor::KeepAnchor );
             cursor.insertText(text);
 
-            quitCompletion("done");
             return;
         }
     }
 
-    quitCompletion("cancelled");
+    // Do not cancel completion whenever menu hidden.
+    // It could be hidden because of current filter yielding 0 results.
+
+    //quitCompletion("cancelled");
 }
 
-QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
+void AutoCompleter::showCompletionMenu( int cursorPos, const QString & data )
 {
     if (!mCompletion.menu.isNull()) {
         qWarning("Recursive request to show completion menu!");
-        return QString();
+        return;
     }
 
     std::stringstream stream;
@@ -610,7 +631,7 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
     YAML::Node doc;
     if(!parser.GetNextDocument(doc) || doc.Type() != YAML::NodeType::Sequence) {
         qWarning("Bad YAML data!");
-        return QString();
+        return;
     }
 
     QPointer<CompletionMenu> popup = new CompletionMenu(mEditor);
@@ -625,8 +646,6 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
 
     qDebug() << "item count = " << doc.size();
 
-    updateCompletionMenu();
-
     popup->view()->installEventFilter(this);
     connect(popup, SIGNAL(finished(int)), this, SLOT(onCompletionMenuFinished(int)));
 
@@ -636,11 +655,9 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
         mEditor->viewport()->mapToGlobal( mEditor->cursorRect(cursor).bottomLeft() )
         + QPoint(0,5);
 
-    QString text = popup->exec(pos);
+    popup->popup(pos);
 
-    delete popup;
-
-    return text;
+    updateCompletionMenu();
 }
 
 void AutoCompleter::updateCompletionMenu()
@@ -657,9 +674,16 @@ void AutoCompleter::updateCompletionMenu()
     else {
         menu->model()->setFilterRegExp(QString());
     }
-    menu->model()->sort(0);
-    if (!menu->view()->currentIndex().isValid())
-        menu->view()->setCurrentIndex( menu->model()->index(0,0) );
+
+    if (menu->model()->hasChildren()) {
+        menu->model()->sort(0);
+        if (!menu->view()->selectionModel()->hasSelection())
+            menu->view()->setCurrentIndex( menu->model()->index(0,0) );
+        menu->show();
+    }
+    else {
+        menu->hide();
+    }
 }
 
 void AutoCompleter::pushMethodCall( int pos, const QString & name, int arg )

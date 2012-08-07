@@ -78,7 +78,7 @@ private:
     void startCompletion();
     void quitCompletion( const QString & reason = QString() );
 
-    QString execCompletionMenu( int cursorPos, const QString & data );
+    void showCompletionMenu( int cursorPos, const QString & data );
     void updateCompletionMenu();
 
     void pushMethodCall( int pos, const QString & name, int arg = 0 );
