@@ -148,7 +148,10 @@ ScIDE {
 	*serializeMethod { arg method;
 		var data = [method.ownerClass.name, method.name];
 		if (method.argNames.size > 1) {
-			data = data ++ method.argNames[1..];
+			data = data ++ [
+				method.argNames.as(Array),
+				method.prototypeFrame.collect(_.cs)
+			].lace [2..];
 		};
 		^data;
 	}

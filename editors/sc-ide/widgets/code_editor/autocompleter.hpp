@@ -41,6 +41,13 @@ class AutoCompleter : public QObject
     Q_OBJECT
 
 public:
+    struct Method {
+        QString className;
+        QString methodName;
+        QStringList argNames;
+        QStringList argDefaults;
+    };
+
     AutoCompleter( CodeEditor * );
 
     void completeName();
@@ -61,12 +68,7 @@ private:
     struct MethodCall {
         int position;
         QString name;
-#if 0
-        QString className;
-        QString methodName;
-        QStringList argNames;
-        QStringList argDefaults;
-#endif
+        Method method;
     };
 
     enum CompletionType {

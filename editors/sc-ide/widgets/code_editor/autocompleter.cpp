@@ -43,6 +43,36 @@ static bool tokenMaybeName( Token::Type type )
     return (type == Token::Name || type == Token::Keyword || type == Token::Builtin);
 }
 
+static AutoCompleter::Method parseMethod( const YAML::Node & node )
+{
+    Q_ASSERT(node.Type() == YAML::NodeType::Sequence);
+    Q_ASSERT(node.size() >= 2);
+
+    AutoCompleter::Method m;
+    m.className = node[0].to<std::string>().c_str();
+    m.methodName = node[1].to<std::string>().c_str();
+    YAML::Iterator it = node.begin();
+    ++it; ++it;
+    while (it != node.end())
+    {
+        // get arg name
+        assert(it->Type() == YAML::NodeType::Scalar);
+        m.argNames << it->to<std::string>().c_str();
+        // get arg default value
+        ++it;
+        if (it == node.end())
+            break;
+        if(it->Type() == YAML::NodeType::Scalar)
+            m.argDefaults << it->to<std::string>().c_str();
+        else
+            m.argDefaults << QString();
+        // next arg
+        ++it;
+    }
+
+    return m;
+}
+
 class CompletionMenu : public PopUpWidget
 {
 public:
@@ -438,14 +468,13 @@ void AutoCompleter::showCompletionMenu( const QString & data )
                 qWarning("YAML parsing: two few sequence elements");
                 continue;
             }
-            QString className( entry[0].to<std::string>().c_str() );
-            QString methodName( entry[1].to<std::string>().c_str() );
+            Method m = parseMethod(entry);
             QStandardItem *item = new QStandardItem();
             if (mCompletion.type == ClassMethodCompletion)
-                item->setText(methodName);
+                item->setText(m.methodName);
             else {
-                item->setText(methodName + " (" + className + ')');
-                item->setData(methodName, CompletionMenu::CompletionRole);
+                item->setText(m.methodName + " (" + m.className + ')');
+                item->setData(m.methodName, CompletionMenu::CompletionRole);
             }
             popup->addItem(item);
         }
