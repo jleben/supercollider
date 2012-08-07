@@ -35,6 +35,7 @@ class CodeEditor;
 class TokenIterator;
 class ScRequest;
 class CompletionMenu;
+class MethodCallWidget;
 
 class AutoCompleter : public QObject
 {
@@ -105,7 +106,10 @@ private:
         QPointer<CompletionMenu> menu;
     } mCompletion;
 
-    QStack<MethodCall> mMethodCallStack;
+    struct {
+        QStack<MethodCall> stack;
+        QPointer<MethodCallWidget> widget;
+    } mMethodCall;
 };
 
 } // namespace ScIDE

@@ -29,7 +29,7 @@
 #include "yaml-cpp/parser.h"
 
 #include <QDebug>
-#include <QToolTip>
+#include <QLabel>
 #include <QListView>
 #include <QStandardItemModel>
 #include <QStandardItem>
@@ -180,6 +180,49 @@ private:
     int mCompletionRole;
 };
 
+class MethodCallWidget : public QWidget
+{
+public:
+    MethodCallWidget( QWidget * parent = 0 ):
+        QWidget( parent, Qt::ToolTip )
+    {
+        QPalette p;
+        p.setColor( QPalette::Window, p.color(QPalette::ToolTipBase) );
+        p.setColor( QPalette::WindowText, p.color(QPalette::ToolTipText) );
+        setPalette(p);
+
+        mLabel = new QLabel();
+
+        QHBoxLayout *box = new QHBoxLayout;
+        box->setContentsMargins(5,2,5,2);
+        box->addWidget(mLabel);
+        setLayout(box);
+    }
+
+    void showMethod( const AutoCompleter::Method & method, int arg )
+    {
+        QString text = method.methodName;
+        text += " (";
+        int argc = method.argNames.count();
+        for (int i = 0; i < argc; ++i) {
+            if (i == arg)
+                text += "<b>" + method.argNames[i] + "</b>";
+            else
+                text += method.argNames[i];
+            QString val = method.argDefaults[i];
+            if (!val.isEmpty())
+                text += " = " + val;
+            if (i != argc - 1)
+                text += ", ";
+        }
+        text +=")";
+        mLabel->setText(text);
+    }
+
+private:
+    QLabel *mLabel;
+};
+
 AutoCompleter::AutoCompleter( CodeEditor *editor ):
     QObject(editor),
     mEditor(editor),
@@ -257,16 +300,17 @@ void AutoCompleter::keyPress( QKeyEvent *e )
 void AutoCompleter::onContentsChange( int pos, int removed, int added )
 {
     qDebug("contentsChange");
-    while (!mMethodCallStack.isEmpty())
+
+    while (!mMethodCall.stack.isEmpty())
     {
-        MethodCall & call = mMethodCallStack.top();
+        MethodCall & call = mMethodCall.stack.top();
         if (pos > call.position) {
-            qDebug("change after call. aborting.");
-            return;
+            qDebug("MethodCall: change after call. aborting.");
+            break;
         }
         else {
-            qDebug("change before call. popping.");
-            mMethodCallStack.pop();
+            qDebug("MethodCall: change before call. popping.");
+            mMethodCall.stack.pop();
         }
     }
 
@@ -694,12 +738,12 @@ void AutoCompleter::updateMethodCall( int cursorPos )
 {
     QTextDocument *doc = document();
 
-    while (!mMethodCallStack.isEmpty())
+    while (!mMethodCall.stack.isEmpty())
     {
-        MethodCall & call = mMethodCallStack.top();
+        MethodCall & call = mMethodCall.stack.top();
         if (call.position >= cursorPos) {
             qDebug("call right of cursor. popping.");
-            mMethodCallStack.pop();
+            mMethodCall.stack.pop();
             continue;
         }
 
@@ -707,7 +751,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
         TokenIterator token = TokenIterator::rightOf(block, call.position - block.position());
         if (!token.isValid()) {
             qDebug("call stack out of sync!");
-            mMethodCallStack.clear();
+            mMethodCall.stack.clear();
             break;
         }
 
@@ -735,7 +779,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
         }
         else {
             qDebug("call left of cursor. popping.");
-            mMethodCallStack.pop();
+            mMethodCall.stack.pop();
         }
     }
 
@@ -748,12 +792,12 @@ void AutoCompleter::updateMethodCall( int cursorPos )
     const QString rightBrackets(")]}");
     const QString leftBrackets("([{");
 
-    if (mMethodCallStack.isEmpty()) {
+    if (mMethodCall.stack.isEmpty()) {
         qDebug("stack empty");
         return;
     }
 
-    MethodCall & call = mMethodCallStack.top()
+    MethodCall & call = mMethodCall.stack.top()
 
     QTextDocument *doc = document();
     QTextBlock block( doc->findBlock(call.position) );
@@ -761,19 +805,19 @@ void AutoCompleter::updateMethodCall( int cursorPos )
 
     if (!lbracket.isValid()) {
         qDebug("stack out of sync!");
-        mMethodCallStack.clear();
+        mMethodCall.stack.clear();
         return;
     }
 
     BracketIterator rbracket = lbracket;
     ++rbracket;
 
-    while (!mMethodCallStack.isEmpty())
+    while (!mMethodCall.stack.isEmpty())
     {
-        call = mMethodCallStack.top();
+        call = mMethodCall.stack.top();
 
         if (call.position > lbracket.position()) {
-            mMethodCallStack.pop();
+            mMethodCall.stack.pop();
             continue;
         }
 
@@ -800,7 +844,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
 
         if (!lbracket.isValid() || lbracket.position() != call.position || level < 0) {
             qDebug("stack out of sync!");
-            mMethodCallStack.clear();
+            mMethodCall.stack.clear();
             return;
         }
 
@@ -823,7 +867,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
             qDebug() << "current method:" << call.name << "|" << arg;
         }
         else {
-            mMethodCallStack.pop();
+            mMethodCall.stack.pop();
         }
     }
 }
@@ -831,16 +875,16 @@ void AutoCompleter::updateMethodCall( int cursorPos )
 
 void AutoCompleter::pushMethodCall( int pos, const Method & method, int arg )
 {
-    Q_ASSERT( mMethodCallStack.isEmpty() || mMethodCallStack.last().position <= pos );
+    Q_ASSERT( mMethodCall.stack.isEmpty() || mMethodCall.stack.last().position <= pos );
 
-    if ( !mMethodCallStack.isEmpty() && mMethodCallStack.last().position == pos )
+    if ( !mMethodCall.stack.isEmpty() && mMethodCall.stack.last().position == pos )
         return;
 
     MethodCall call;
     call.position = pos;
     call.method = method;
 
-    mMethodCallStack.push(call);
+    mMethodCall.stack.push(call);
 
     showMethodCall(call, arg);
 }
@@ -849,34 +893,25 @@ void AutoCompleter::showMethodCall( const MethodCall & call, int arg )
 {
     QTextCursor cursor(document());
     cursor.setPosition(call.position);
-    QPoint pos = mEditor->viewport()->mapToGlobal( mEditor->cursorRect(cursor).topLeft() );
-    pos += QPoint(0, -40);
+    QPoint pos =
+        mEditor->viewport()->mapToGlobal( mEditor->cursorRect(cursor).topLeft() );
+    pos += QPoint(0, -20);
 
-    QString text = "<p style='white-space:pre'>";
-    text += call.method.methodName;
-    text += "(";
-    int argc = call.method.argNames.count();
-    for (int i = 0; i < argc; ++i) {
-        if (i == arg)
-            text += "<b>" + call.method.argNames[i] + "</b>";
-        else
-            text += call.method.argNames[i];
-        QString val = call.method.argDefaults[i];
-        if (!val.isEmpty())
-            text += " = " + val;
-        if (i != argc - 1)
-            text += ", ";
-    }
-    text +=")</p>";
+    if (mMethodCall.widget.isNull())
+        mMethodCall.widget = new MethodCallWidget(mEditor->viewport());
 
-    qDebug() << "showing tooltip:" << text << pos;
+    MethodCallWidget *w = mMethodCall.widget;
 
-    QToolTip::showText( pos, text, mEditor );
+    w->showMethod( call.method, arg );
+    w->resize(w->sizeHint());
+    qDebug() << "pop up method call:" << w->sizeHint();
+    w->move(pos);
+    w->show();
 }
 
 void AutoCompleter::hideMethodCall()
 {
-    QToolTip::hideText();
+    delete mMethodCall.widget;
 }
 
 QString AutoCompleter::tokenText( TokenIterator & it )
