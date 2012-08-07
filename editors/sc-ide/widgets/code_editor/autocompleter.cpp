@@ -73,11 +73,29 @@ static AutoCompleter::Method parseMethod( const YAML::Node & node )
     return m;
 }
 
+static QString methodSignature( const AutoCompleter::Method & method )
+{
+    QString text = method.methodName;
+    text += "(";
+    int argc = method.argNames.count();
+    for (int i = 0; i < argc; ++i) {
+        text += method.argNames[i];
+        QString val = method.argDefaults[i];
+        if (!val.isEmpty())
+            text += " = " + val;
+        if (i != argc - 1)
+            text += ", ";
+    }
+    text +=")";
+    return text;
+}
+
 class CompletionMenu : public PopUpWidget
 {
 public:
     enum DataRole {
-        CompletionRole = Qt::UserRole
+        CompletionRole = Qt::UserRole,
+        MethodRole
     };
 
     CompletionMenu( QWidget * parent = 0 ):
@@ -126,6 +144,18 @@ public:
             return item->data(mCompletionRole).toString();
 
         return QString();
+    }
+
+    AutoCompleter::Method currentMethod()
+    {
+        QStandardItem *item =
+            mModel->itemFromIndex (
+                mFilterModel->mapToSource (
+                    mListView->currentIndex()));
+        if (item)
+            return item->data(MethodRole).value<AutoCompleter::Method>();
+
+        return AutoCompleter::Method();
     }
 
     QString exec( const QPoint & pos )
@@ -207,7 +237,7 @@ void AutoCompleter::keyPress( QKeyEvent *e )
     {
     case Qt::Key_ParenLeft:
     case Qt::Key_Comma:
-        aidMethodCall();
+        //startMethodCall();
         break;
     case Qt::Key_Backspace:
     case Qt::Key_Delete:
@@ -269,7 +299,7 @@ void AutoCompleter::onCursorChanged()
 {
     qDebug("cursorChanged");
     int cursorPos = mEditor->textCursor().position();
-    //checkStack(cursorPos);
+
     if (mCompletion.on) {
         if (cursorPos < mCompletion.pos ||
             cursorPos > mCompletion.pos + mCompletion.len)
@@ -277,6 +307,8 @@ void AutoCompleter::onCursorChanged()
             quitCompletion("out of bounds");
         }
     }
+
+    updateMethodCall(cursorPos);
 }
 
 void AutoCompleter::onResponse( const QString & cmd, const QString & data )
@@ -476,6 +508,7 @@ void AutoCompleter::showCompletionMenu( const QString & data )
                 item->setText(m.methodName + " (" + m.className + ')');
                 item->setData(m.methodName, CompletionMenu::CompletionRole);
             }
+            item->setData( QVariant::fromValue<Method>(m), CompletionMenu::MethodRole );
             popup->addItem(item);
         }
         break;
@@ -540,12 +573,22 @@ void AutoCompleter::onCompletionMenuFinished( int result )
         QString text = mCompletion.menu->currentText();
 
         if (!text.isEmpty()) {
+            CompletionType type = mCompletion.type;
+            Method method;
+            if (type == MethodCompletion || type == ClassMethodCompletion)
+                method = mCompletion.menu->currentMethod();
+
             quitCompletion("done");
 
             QTextCursor cursor( mEditor->textCursor() );
             cursor.setPosition( mCompletion.pos );
             cursor.setPosition( mCompletion.pos + mCompletion.len, QTextCursor::KeepAnchor );
             cursor.insertText(text);
+
+            if (!method.methodName.isEmpty()) {
+                cursor.insertText("(");
+                pushMethodCall(cursor.position() - 1, method);
+            }
 
             return;
         }
@@ -557,7 +600,7 @@ void AutoCompleter::onCompletionMenuFinished( int result )
     //quitCompletion("cancelled");
 }
 
-void AutoCompleter::aidMethodCall()
+void AutoCompleter::startMethodCall()
 {
     // go find the bracket that I'm currently in,
     // and count relevant commas along the way
@@ -644,10 +687,10 @@ void AutoCompleter::aidMethodCall()
            methodName.toStdString().c_str(),
            argPos);
 
-    pushMethodCall( bracketPos, className + "." + methodName );
+    //pushMethodCall( bracketPos, className + "." + methodName );
 }
 
-void AutoCompleter::checkStack( int cursorPos )
+void AutoCompleter::updateMethodCall( int cursorPos )
 {
     QTextDocument *doc = document();
 
@@ -686,7 +729,7 @@ void AutoCompleter::checkStack( int cursorPos )
         }
 
         if (level > 0) {
-            qDebug("current call: %s(%i)", call.name.toStdString().c_str(), arg);
+            qDebug("current call: %s(%i)", call.method.methodName.toStdString().c_str(), arg);
             showMethodCall(call, arg);
             return;
         }
@@ -700,7 +743,7 @@ void AutoCompleter::checkStack( int cursorPos )
     qDebug("call stack empty");
 }
 #if 0
-void AutoCompleter::checkStack( int cursorPos )
+void AutoCompleter::updateMethodCall( int cursorPos )
 {
     const QString rightBrackets(")]}");
     const QString leftBrackets("([{");
@@ -786,7 +829,7 @@ void AutoCompleter::checkStack( int cursorPos )
 }
 #endif
 
-void AutoCompleter::pushMethodCall( int pos, const QString & name, int arg )
+void AutoCompleter::pushMethodCall( int pos, const Method & method, int arg )
 {
     Q_ASSERT( mMethodCallStack.isEmpty() || mMethodCallStack.last().position <= pos );
 
@@ -795,7 +838,7 @@ void AutoCompleter::pushMethodCall( int pos, const QString & name, int arg )
 
     MethodCall call;
     call.position = pos;
-    call.name = name;
+    call.method = method;
 
     mMethodCallStack.push(call);
 
@@ -810,11 +853,21 @@ void AutoCompleter::showMethodCall( const MethodCall & call, int arg )
     pos += QPoint(0, -40);
 
     QString text = "<p style='white-space:pre'>";
-    text += call.name;
+    text += call.method.methodName;
     text += "(";
-    for (int i = 0; i < arg; ++i)
-        text += "arg, ";
-    text += "<b>arg</b>)</p>";
+    int argc = call.method.argNames.count();
+    for (int i = 0; i < argc; ++i) {
+        if (i == arg)
+            text += "<b>" + call.method.argNames[i] + "</b>";
+        else
+            text += call.method.argNames[i];
+        QString val = call.method.argDefaults[i];
+        if (!val.isEmpty())
+            text += " = " + val;
+        if (i != argc - 1)
+            text += ", ";
+    }
+    text +=")</p>";
 
     qDebug() << "showing tooltip:" << text << pos;
 

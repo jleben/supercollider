@@ -50,8 +50,7 @@ public:
 
     AutoCompleter( CodeEditor * );
 
-    void completeName();
-    void aidMethodCall();
+
     void keyPress( QKeyEvent * );
     void documentChanged( QTextDocument * );
 
@@ -67,7 +66,6 @@ private slots:
 private:
     struct MethodCall {
         int position;
-        QString name;
         Method method;
     };
 
@@ -81,15 +79,15 @@ private:
 
     QTextDocument *document();
 
-    void checkStack( int cursorPos );
-
     void startCompletion();
     void quitCompletion( const QString & reason = QString() );
 
     void showCompletionMenu( const QString & data );
     void updateCompletionMenu();
 
-    void pushMethodCall( int pos, const QString & name, int arg = 0 );
+    void startMethodCall();
+    void updateMethodCall( int cursorPos );
+    void pushMethodCall( int pos, const Method &, int arg = 0 );
     void showMethodCall( const MethodCall & call, int arg = 0 );
     void hideMethodCall();
     QString tokenText( TokenIterator & it );
@@ -111,5 +109,7 @@ private:
 };
 
 } // namespace ScIDE
+
+Q_DECLARE_METATYPE(ScIDE::AutoCompleter::Method);
 
 #endif
