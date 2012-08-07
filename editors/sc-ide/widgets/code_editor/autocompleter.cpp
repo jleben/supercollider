@@ -38,6 +38,11 @@
 
 namespace ScIDE {
 
+static bool tokenMaybeName( Token::Type type )
+{
+    return (type == Token::Name || type == Token::Keyword || type == Token::Builtin);
+}
+
 class CompletionMenu : public PopUpWidget
 {
 public:
@@ -203,7 +208,7 @@ void AutoCompleter::onContentsChange( int pos, int removed, int added )
             QTextBlock block( document()->findBlock(mCompletion.pos) );
             TokenIterator it( block, mCompletion.pos - block.position() );
             Token::Type type = it.type();
-            if (type == Token::Name || type == Token::Class) {
+            if (type == Token::Class || tokenMaybeName(type)) {
                 mCompletion.len = it->length;
                 mCompletion.text = tokenText(it);
             }
@@ -286,10 +291,10 @@ void AutoCompleter::startCompletion()
             else
                 return;
             it = dit.next();
-            if (it.type() == Token::Name)
+            if (tokenMaybeName(it.type()))
                 mit = it;
         }
-        else if (token.type == Token::Name)
+        else if (tokenMaybeName(token.type))
         {
             mit = it;
             --it;
