@@ -79,6 +79,7 @@ private:
     void quitCompletion( const QString & reason = QString() );
 
     QString execCompletionMenu( int cursorPos, const QString & data );
+    void updateCompletionMenu();
 
     void pushMethodCall( int pos, const QString & name, int arg = 0 );
     void showMethodCall( const MethodCall & call, int arg = 0 );
@@ -93,6 +94,7 @@ private:
         int pos;
         int len;
         int contextPos;
+        QString text;
         QPointer<CompletionMenu> menu;
     } mCompletion;
 

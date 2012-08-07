@@ -205,17 +205,14 @@ void AutoCompleter::onContentsChange( int pos, int removed, int added )
             Token::Type type = it.type();
             if (type == Token::Name || type == Token::Class) {
                 mCompletion.len = it->length;
-                if (!mCompletion.menu.isNull()) {
-                    QString text = tokenText(it);
-                    text.prepend("^");
-                    mCompletion.menu->model()->setFilterRegExp(text);
-                }
+                mCompletion.text = tokenText(it);
             }
             else {
                 mCompletion.len = 0;
-                if (!mCompletion.menu.isNull())
-                    mCompletion.menu->model()->setFilterRegExp(QString());
+                mCompletion.text.clear();
             }
+            if (!mCompletion.menu.isNull())
+                updateCompletionMenu();
         }
     }
 }
@@ -261,7 +258,7 @@ void AutoCompleter::startCompletion()
         return;
 
     const Token & token = *it;
-    QString text, command;
+    QString contextText, command;
 
     if (token.type == Token::Class)
     {
@@ -270,7 +267,7 @@ void AutoCompleter::startCompletion()
         mCompletion.pos = it.position();
         mCompletion.len = it->length;
         mCompletion.contextPos = mCompletion.pos + 3;
-        text = tokenText(it);
+        mCompletion.text = contextText = tokenText(it);
         command = "completeClass";
     }
     else {
@@ -311,24 +308,25 @@ void AutoCompleter::startCompletion()
         mCompletion.pos = dit.position() + 1;
         mCompletion.len =
             mit.isValid() ? mit->position + mit->length - (dit->position + 1) : 0;
+        mCompletion.text = tokenText(mit);
 
         if (cit.isValid()) {
             mCompletion.contextPos = mCompletion.pos;
-            text = tokenText(cit);
+            contextText = tokenText(cit);
             command = "completeClassMethod";
         }
         else {
             mCompletion.contextPos = mCompletion.pos + 3;
-            text = tokenText(mit);
-            text.truncate(3);
+            contextText = tokenText(mit);
+            contextText.truncate(3);
             command = "completeMethod";
         }
     }
 
     mCompletion.on = true;
     qDebug() << "completion ON";
-    qDebug() << "sending request:" << command << text;
-    mScRequest->send( command, text );
+    qDebug() << "sending request:" << command << contextText;
+    mScRequest->send( command, contextText );
 }
 
 void AutoCompleter::quitCompletion( const QString & reason )
@@ -627,6 +625,8 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
 
     qDebug() << "item count = " << doc.size();
 
+    updateCompletionMenu();
+
     popup->view()->installEventFilter(this);
     connect(popup, SIGNAL(finished(int)), this, SLOT(onCompletionMenuFinished(int)));
 
@@ -641,6 +641,25 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
     delete popup;
 
     return text;
+}
+
+void AutoCompleter::updateCompletionMenu()
+{
+    Q_ASSERT(mCompletion.on && !mCompletion.menu.isNull());
+
+    CompletionMenu *menu = mCompletion.menu;
+
+    if (!mCompletion.text.isEmpty()) {
+        QString pattern = mCompletion.text;
+        pattern.prepend("^");
+        menu->model()->setFilterRegExp(pattern);
+    }
+    else {
+        menu->model()->setFilterRegExp(QString());
+    }
+    menu->model()->sort(0);
+    if (!menu->view()->currentIndex().isValid())
+        menu->view()->setCurrentIndex( menu->model()->index(0,0) );
 }
 
 void AutoCompleter::pushMethodCall( int pos, const QString & name, int arg )
