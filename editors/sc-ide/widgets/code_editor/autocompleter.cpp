@@ -371,13 +371,13 @@ void AutoCompleter::startCompletion()
         if (mit.isValid()) {
             mCompletion.pos = mit.position();
             mCompletion.len = mit->length;
+            mCompletion.text = tokenText(mit);
         }
         else {
             mCompletion.pos = dit.position() + 1;
             mCompletion.len = 0;
+            mCompletion.text.clear();
         }
-
-        mCompletion.text = tokenText(mit);
 
         if (cit.isValid()) {
             mCompletion.contextPos = mCompletion.pos;
