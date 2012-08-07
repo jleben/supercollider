@@ -312,9 +312,15 @@ void AutoCompleter::startCompletion()
         if (!cit.isValid() && mit->length < 3)
             return;
 
-        mCompletion.pos = dit.position() + 1;
-        mCompletion.len =
-            mit.isValid() ? mit->position + mit->length - (dit->position + 1) : 0;
+        if (mit.isValid()) {
+            mCompletion.pos = mit.position();
+            mCompletion.len = mit->length;
+        }
+        else {
+            mCompletion.pos = dit.position() + 1;
+            mCompletion.len = 0;
+        }
+
         mCompletion.text = tokenText(mit);
 
         if (cit.isValid()) {
