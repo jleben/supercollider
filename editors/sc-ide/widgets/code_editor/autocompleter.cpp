@@ -46,8 +46,13 @@ static bool tokenMaybeName( Token::Type type )
 class CompletionMenu : public PopUpWidget
 {
 public:
+    enum DataRole {
+        CompletionRole = Qt::UserRole
+    };
+
     CompletionMenu( QWidget * parent = 0 ):
-        PopUpWidget(parent)
+        PopUpWidget(parent),
+        mCompletionRole( Qt::DisplayRole )
     {
         mModel = new QStandardItemModel(this);
         mFilterModel = new QSortFilterProxyModel(this);
@@ -69,9 +74,16 @@ public:
         resize(200, 200);
     }
 
-    void addItem( const QString & text )
+    void addItem( QStandardItem * item )
     {
-        mModel->appendRow( new QStandardItem(text) );
+        mModel->appendRow( item );
+    }
+
+    void setCompletionRole( int role )
+    {
+        mFilterModel->setFilterRole(role);
+        mFilterModel->setSortRole(role);
+        mCompletionRole = role;
     }
 
     QString currentText()
@@ -81,7 +93,7 @@ public:
                 mFilterModel->mapToSource (
                     mListView->currentIndex()));
         if (item)
-            return item->text();
+            return item->data(mCompletionRole).toString();
 
         return QString();
     }
@@ -105,6 +117,7 @@ private:
     QListView *mListView;
     QStandardItemModel *mModel;
     QSortFilterProxyModel *mFilterModel;
+    int mCompletionRole;
 };
 
 AutoCompleter::AutoCompleter( CodeEditor *editor ):
@@ -244,7 +257,7 @@ void AutoCompleter::onResponse( const QString & cmd, const QString & data )
         cmd == "completeMethod" ||
         cmd == "completeClassMethod"))
     {
-        showCompletionMenu( mCompletion.pos, data );
+        showCompletionMenu( data );
     }
 }
 
@@ -281,6 +294,7 @@ void AutoCompleter::startCompletion()
     {
         if (token.length < 3)
             return;
+        mCompletion.type = ClassCompletion;
         mCompletion.pos = it.position();
         mCompletion.len = it->length;
         mCompletion.text = tokenText(it);
@@ -339,12 +353,14 @@ void AutoCompleter::startCompletion()
             mCompletion.contextPos = mCompletion.pos;
             contextText = tokenText(cit);
             command = "completeClassMethod";
+            mCompletion.type = ClassMethodCompletion;
         }
         else {
             mCompletion.contextPos = mCompletion.pos + 3;
             contextText = tokenText(mit);
             contextText.truncate(3);
             command = "completeMethod";
+            mCompletion.type = MethodCompletion;
         }
     }
 
@@ -371,12 +387,14 @@ void AutoCompleter::quitCompletion( const QString & reason )
     mCompletion.on = false;
 }
 
-void AutoCompleter::showCompletionMenu( int cursorPos, const QString & data )
+void AutoCompleter::showCompletionMenu( const QString & data )
 {
     if (!mCompletion.menu.isNull()) {
         qWarning("Recursive request to show completion menu!");
         return;
     }
+
+    QPointer<CompletionMenu> popup = new CompletionMenu(mEditor);
 
     std::stringstream stream;
     stream << data.toStdString();
@@ -385,26 +403,68 @@ void AutoCompleter::showCompletionMenu( int cursorPos, const QString & data )
     YAML::Node doc;
     if(!parser.GetNextDocument(doc) || doc.Type() != YAML::NodeType::Sequence) {
         qWarning("Bad YAML data!");
+        delete popup;
         return;
     }
 
-    QPointer<CompletionMenu> popup = new CompletionMenu(mEditor);
-    mCompletion.menu = popup;
-
-    for (YAML::Iterator it = doc.begin(); it != doc.end(); ++it) {
-        YAML::Node const & entry = *it;
-        //qDebug() << (int) entry.Type();
-        if(entry.Type() == YAML::NodeType::Scalar)
-            popup->addItem( entry.to<std::string>().c_str() );
+    switch (mCompletion.type)
+    {
+    case ClassCompletion:
+    {
+        for (YAML::Iterator it = doc.begin(); it != doc.end(); ++it)
+        {
+            YAML::Node const & entry = *it;
+            //qDebug() << (int) entry.Type();
+            if(entry.Type() == YAML::NodeType::Scalar) {
+                QString text( entry.to<std::string>().c_str() );
+                popup->addItem( new QStandardItem(text) );
+            }
+            else
+                qWarning("Class Name Completion: a YAML data entry not a scalar");
+        }
+        break;
+    }
+    case ClassMethodCompletion:
+    case MethodCompletion:
+    {
+        for (YAML::Iterator it = doc.begin(); it != doc.end(); ++it)
+        {
+            YAML::Node const & entry = *it;
+            if (entry.Type() != YAML::NodeType::Sequence) {
+                qWarning("Method Name Completion: a YAML data entry not a Sequence");
+                continue;
+            }
+            if (entry.size() < 2) {
+                qWarning("YAML parsing: two few sequence elements");
+                continue;
+            }
+            QString className( entry[0].to<std::string>().c_str() );
+            QString methodName( entry[1].to<std::string>().c_str() );
+            QStandardItem *item = new QStandardItem();
+            if (mCompletion.type == ClassMethodCompletion)
+                item->setText(methodName);
+            else {
+                item->setText(methodName + " (" + className + ')');
+                item->setData(methodName, CompletionMenu::CompletionRole);
+            }
+            popup->addItem(item);
+        }
+        break;
+    }
+    default:
+        Q_ASSERT(false);
     }
 
-    qDebug() << "item count = " << doc.size();
+    if (mCompletion.type == MethodCompletion)
+        popup->setCompletionRole(CompletionMenu::CompletionRole);
+
+    mCompletion.menu = popup;
 
     popup->view()->installEventFilter(this);
     connect(popup, SIGNAL(finished(int)), this, SLOT(onCompletionMenuFinished(int)));
 
     QTextCursor cursor(document());
-    cursor.setPosition(cursorPos);
+    cursor.setPosition(mCompletion.pos);
     QPoint pos =
         mEditor->viewport()->mapToGlobal( mEditor->cursorRect(cursor).bottomLeft() )
         + QPoint(0,5);

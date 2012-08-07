@@ -123,7 +123,7 @@ ScIDE {
 				};
 				class = class.superclass;
 			};
-			out = methods.values.collect { |m| m.name.asSymbol };
+			out = methods.values.collect { |m| this.serializeMethod(m) };
 			out.postln;
 			out.size.postln;
 			if (out.size > 0) { this.prSend(id, out) };
@@ -138,11 +138,19 @@ ScIDE {
 				var signature;
 				var definition;
 				if (method.name.asString.beginsWith(text)) {
-					out = out.add( method.name );
+					out = out.add( this.serializeMethod(method) );
 				};
 			};
 		};
 		if (out.size > 0) { this.prSend(id, out) };
+	}
+
+	*serializeMethod { arg method;
+		var data = [method.ownerClass.name, method.name];
+		if (method.argNames.size > 1) {
+			data = data ++ method.argNames[1..];
+		};
+		^data;
 	}
 
 	*prSend {|id, data|

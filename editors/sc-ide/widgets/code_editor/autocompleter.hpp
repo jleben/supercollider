@@ -69,6 +69,12 @@ private:
 #endif
     };
 
+    enum CompletionType {
+        ClassCompletion,
+        ClassMethodCompletion,
+        MethodCompletion
+    };
+
     typedef QStack<MethodCall>::iterator MethodCallIterator;
 
     QTextDocument *document();
@@ -78,7 +84,7 @@ private:
     void startCompletion();
     void quitCompletion( const QString & reason = QString() );
 
-    void showCompletionMenu( int cursorPos, const QString & data );
+    void showCompletionMenu( const QString & data );
     void updateCompletionMenu();
 
     void pushMethodCall( int pos, const QString & name, int arg = 0 );
@@ -91,6 +97,7 @@ private:
 
     struct {
         bool on;
+        CompletionType type;
         int pos;
         int len;
         int contextPos;
