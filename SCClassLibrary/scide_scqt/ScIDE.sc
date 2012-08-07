@@ -116,7 +116,7 @@ ScIDE {
 		if (class.notNil) {
 			methods = IdentityDictionary();
 			while { class.notNil } {
-				class.methods.do { |method|
+				class.class.methods.do { |method|
 					if (methods[method.name].isNil) {
 						methods.put(method.name, method);
 					};
