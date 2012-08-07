@@ -93,7 +93,6 @@ private:
         int pos;
         int len;
         int contextPos;
-        QPointer<QSortFilterProxyModel> model;
         QPointer<CompletionMenu> menu;
     } mCompletion;
 

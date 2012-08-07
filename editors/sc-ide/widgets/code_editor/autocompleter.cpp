@@ -205,13 +205,16 @@ void AutoCompleter::onContentsChange( int pos, int removed, int added )
             Token::Type type = it.type();
             if (type == Token::Name || type == Token::Class) {
                 mCompletion.len = it->length;
-                QString text = tokenText(it);
-                text.prepend("^");
-                mCompletion.model->setFilterRegExp(text);
+                if (!mCompletion.menu.isNull()) {
+                    QString text = tokenText(it);
+                    text.prepend("^");
+                    mCompletion.menu->model()->setFilterRegExp(text);
+                }
             }
             else {
                 mCompletion.len = 0;
-                mCompletion.model->setFilterRegExp(QString());
+                if (!mCompletion.menu.isNull())
+                    mCompletion.menu->model()->setFilterRegExp(QString());
             }
         }
     }
@@ -597,7 +600,7 @@ void AutoCompleter::onCompletionMenuFinished( int result )
 
 QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
 {
-    if (!mCompletion.model.isNull()) {
+    if (!mCompletion.menu.isNull()) {
         qWarning("Recursive request to show completion menu!");
         return QString();
     }
@@ -613,7 +616,6 @@ QString AutoCompleter::execCompletionMenu( int cursorPos, const QString & data )
     }
 
     QPointer<CompletionMenu> popup = new CompletionMenu(mEditor);
-    mCompletion.model = popup->model();
     mCompletion.menu = popup;
 
     for (YAML::Iterator it = doc.begin(); it != doc.end(); ++it) {
