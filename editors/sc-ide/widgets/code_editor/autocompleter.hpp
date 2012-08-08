@@ -92,7 +92,7 @@ private:
     void startMethodCall();
     void updateMethodCall( int cursorPos );
     void onMethodCallResponse( const QString & data );
-    void pushMethodCall( int pos, const Method &, int arg = 0 );
+    void pushMethodCall( const MethodCall & call );
     void showMethodCall( const MethodCall & call, int arg = 0 );
     void hideMethodCall();
 

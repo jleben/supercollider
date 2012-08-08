@@ -286,7 +286,7 @@ void AutoCompleter::keyPress( QKeyEvent *e )
     case Qt::Key_Delete:
         return;
     default:
-        qDebug("key");
+        qDebug(">>> key");
         if (!e->text().isEmpty() && !mCompletion.on)
             startCompletion();
     }
@@ -299,17 +299,15 @@ void AutoCompleter::keyPress( QKeyEvent *e )
 
 void AutoCompleter::onContentsChange( int pos, int removed, int added )
 {
-    qDebug("contentsChange");
+    qDebug(">>> contentsChange");
 
     while (!mMethodCall.stack.isEmpty())
     {
         MethodCall & call = mMethodCall.stack.top();
-        if (pos > call.position) {
-            qDebug("MethodCall: change after call. aborting.");
+        if (pos > call.position)
             break;
-        }
         else {
-            qDebug("MethodCall: change before call. popping.");
+            qDebug("Method call: change before method call. popping.");
             mMethodCall.stack.pop();
         }
     }
@@ -341,7 +339,7 @@ void AutoCompleter::onContentsChange( int pos, int removed, int added )
 
 void AutoCompleter::onCursorChanged()
 {
-    qDebug("cursorChanged");
+    qDebug(">>> cursorChanged");
     int cursorPos = mEditor->textCursor().position();
 
     // completion
@@ -358,23 +356,23 @@ void AutoCompleter::onCursorChanged()
 
 void AutoCompleter::onResponse( const QString & cmd, const QString & data )
 {
-    qDebug("response.");
     if (mCompletion.on && (
         cmd == "completeClass" ||
         cmd == "completeMethod" ||
         cmd == "completeClassMethod"))
     {
+        qDebug(">>> completion response...");
         onCompletionResponse( data );
     }
     else if (cmd == "findMethod" )
     {
+        qDebug(">>> method call response...");
         onMethodCallResponse( data );
     }
 }
 
 void AutoCompleter::startCompletion()
 {
-    qDebug("complete...");
     if (mCompletion.on) {
         qWarning("AutoCompleter::startCompletion(): completion already started!");
         return;
@@ -476,8 +474,8 @@ void AutoCompleter::startCompletion()
     }
 
     mCompletion.on = true;
-    qDebug() << "completion ON";
-    qDebug() << "sending request:" << command << contextText;
+    qDebug() << "Completion: ON";
+    qDebug() << "Completion: sending request:" << command << contextText;
     mScRequest->send( command, contextText );
 }
 
@@ -485,7 +483,7 @@ void AutoCompleter::quitCompletion( const QString & reason )
 {
     Q_ASSERT(mCompletion.on);
 
-    qDebug() << QString("Completion OFF (%1)").arg(reason);
+    qDebug() << QString("Completion: OFF (%1)").arg(reason);
 
     mScRequest->cancel();
 
@@ -525,13 +523,12 @@ void AutoCompleter::onCompletionResponse( const QString & data )
         for (YAML::Iterator it = doc.begin(); it != doc.end(); ++it)
         {
             YAML::Node const & entry = *it;
-            //qDebug() << (int) entry.Type();
             if(entry.Type() == YAML::NodeType::Scalar) {
                 QString text( entry.to<std::string>().c_str() );
                 popup->addItem( new QStandardItem(text) );
             }
             else
-                qWarning("Class Name Completion: a YAML data entry not a scalar");
+                qWarning("YAML parsing: a YAML data entry not a scalar");
         }
         break;
     }
@@ -542,7 +539,7 @@ void AutoCompleter::onCompletionResponse( const QString & data )
         {
             YAML::Node const & entry = *it;
             if (entry.Type() != YAML::NodeType::Sequence) {
-                qWarning("Method Name Completion: a YAML data entry not a Sequence");
+                qWarning("YAML parsing: a YAML data entry not a Sequence");
                 continue;
             }
             if (entry.size() < 2) {
@@ -613,7 +610,7 @@ void AutoCompleter::updateCompletionMenu()
 
 void AutoCompleter::onCompletionMenuFinished( int result )
 {
-    qDebug("completion menu finished");
+    qDebug("Completion: menu finished");
 
     if (!mCompletion.on)
         return;
@@ -636,7 +633,11 @@ void AutoCompleter::onCompletionMenuFinished( int result )
 
             if (!method.methodName.isEmpty()) {
                 cursor.insertText("(");
-                pushMethodCall(cursor.position() - 1, method);
+                MethodCall call;
+                call.position = cursor.position() - 1;
+                call.method = method;
+                pushMethodCall(call);
+                showMethodCall(call, 0);
             }
 
             return;
@@ -685,19 +686,15 @@ void AutoCompleter::startMethodCall()
             if (level == 0) {
                 if (chr == '(')
                     break;
-                else {
-                    qDebug() << "wrong bracket type:" << chr;
+                else
                     return;
-                }
             }
         }
         --it;
     }
 
-    if (!it.isValid()) {
-        qDebug() << "no current bracket.";
+    if (!it.isValid())
         return;
-    }
 
     int bracketPos;
     pos = bracketPos = it.position();
@@ -721,32 +718,27 @@ void AutoCompleter::startMethodCall()
                     className = tokenText(it);
             }
         }
-        else
-            qDebug("no Class or Name token before bracket.");
     }
-    else
-        qDebug("no token before bracket.");
-
 
     if (methodName.isEmpty())
         return;
 
-    qDebug("found call: %s.%s(%i)",
+    qDebug("Method call: found call: %s.%s(%i)",
            className.toStdString().c_str(),
            methodName.toStdString().c_str(),
            argPos);
 
     if ( !mMethodCall.stack.isEmpty() && mMethodCall.stack.last().position == bracketPos )
     {
-        qDebug("method call already on stack");
+        qDebug("Method call: call already on stack");
         // method call popup should have been updated by updateMethodCall();
     }
     else
     {
-        qDebug("new method call");
+        qDebug("Method call: new call");
         MethodCall call;
         call.position = bracketPos;
-        mMethodCall.stack.push(call);
+        pushMethodCall(call);
 
         // store position for sc response
         mMethodCall.pos = bracketPos;
@@ -769,7 +761,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
     {
         MethodCall & call = mMethodCall.stack[i];
         if (call.position >= cursorPos) {
-            qDebug("updateMethodCall(): call right of cursor. popping.");
+            qDebug("Method call: call right of cursor. popping.");
             mMethodCall.stack.pop();
             continue;
         }
@@ -777,7 +769,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
         QTextBlock block( document()->findBlock( call.position ) );
         TokenIterator token = TokenIterator::rightOf(block, call.position - block.position());
         if (!token.isValid()) {
-            qDebug("updateMethodCall(): call stack out of sync!");
+            qWarning("Method call: call stack out of sync!");
             mMethodCall.stack.clear();
             break;
         }
@@ -801,9 +793,9 @@ void AutoCompleter::updateMethodCall( int cursorPos )
 
         if (level > 0) {
             if (call.method.methodName.isEmpty())
-                qDebug("updateMethodCall(): method call incomplete. skipping.");
+                qDebug("Method call: call data incomplete. skipping.");
             else {
-                qDebug("updateMethodCall(): current call: %s(%i)",
+                qDebug("Method call: found current call: %s(%i)",
                     call.method.methodName.toStdString().c_str(), arg);
                 showMethodCall(call, arg);
                 return;
@@ -811,13 +803,12 @@ void AutoCompleter::updateMethodCall( int cursorPos )
         }
         else {
             Q_ASSERT(i == mMethodCall.stack.count() - 1);
-            qDebug("updateMethodCall(): call left of cursor. popping.");
+            qDebug("Method call: call left of cursor. popping.");
             mMethodCall.stack.pop();
         }
     }
 
     hideMethodCall();
-    qDebug("updateMethodCall(): no current call on stack");
 }
 #if 0
 void AutoCompleter::updateMethodCall( int cursorPos )
@@ -977,20 +968,13 @@ void AutoCompleter::onMethodCallResponse( const QString & data )
     }
 }
 
-void AutoCompleter::pushMethodCall( int pos, const Method & method, int arg )
+void AutoCompleter::pushMethodCall( const MethodCall & call )
 {
-    Q_ASSERT( mMethodCall.stack.isEmpty() || mMethodCall.stack.last().position <= pos );
-
-    if ( !mMethodCall.stack.isEmpty() && mMethodCall.stack.last().position == pos )
-        return;
-
-    MethodCall call;
-    call.position = pos;
-    call.method = method;
+    qDebug("Method Call: pushing on stack.");
+    Q_ASSERT( mMethodCall.stack.isEmpty()
+        || mMethodCall.stack.last().position < call.position );
 
     mMethodCall.stack.push(call);
-
-    showMethodCall(call, arg);
 }
 
 void AutoCompleter::showMethodCall( const MethodCall & call, int arg )
@@ -1008,7 +992,6 @@ void AutoCompleter::showMethodCall( const MethodCall & call, int arg )
 
     w->showMethod( call.method, arg );
     w->resize(w->sizeHint());
-    qDebug() << "pop up method call:" << w->sizeHint();
     w->move(pos);
     w->show();
 }
@@ -1020,10 +1003,8 @@ void AutoCompleter::hideMethodCall()
 
 QString AutoCompleter::tokenText( TokenIterator & it )
 {
-    if (!it.isValid()) {
-        qDebug("token iterator invalid!");
+    if (!it.isValid())
         return QString();
-    }
 
     int pos = it.position();
     QTextCursor cursor(document());
