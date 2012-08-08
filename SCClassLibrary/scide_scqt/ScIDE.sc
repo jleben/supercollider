@@ -115,17 +115,20 @@ ScIDE {
 		class = text.asSymbol.asClass;
 		if (class.notNil) {
 			methods = IdentityDictionary();
+			class = class.class;
 			while { class.notNil } {
-				class.class.methods.do { |method|
-					if (methods[method.name].isNil) {
+				class.methods.do { |method|
+					// methods include operators like "+", but those are
+					// actually not valid in the method call syntax
+					if (method.name.asString[0].isAlpha &&
+						methods[method.name].isNil)
+					{
 						methods.put(method.name, method);
 					};
 				};
 				class = class.superclass;
 			};
 			out = methods.values.collect { |m| this.serializeMethod(m) };
-			out.postln;
-			out.size.postln;
 			if (out.size > 0) { this.prSend(id, out) };
 		}
 	}
