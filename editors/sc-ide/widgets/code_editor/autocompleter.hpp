@@ -61,7 +61,8 @@ protected:
 private slots:
     void onContentsChange(int pos, int removed, int added);
     void onCursorChanged();
-    void onResponse( const QString & cmd, const QString & data );
+    void onCompletionResponse( const QString & cmd, const QString & data );
+    void onMethodCallResponse( const QString & cmd, const QString & data );
     void onCompletionMenuFinished( int result );
 
 private:
@@ -103,7 +104,8 @@ private:
     // data
 
     CodeEditor *mEditor;
-    ScRequest *mScRequest;
+    ScRequest *mCompletionRequest;
+    ScRequest *mMethodCallRequest;
 
     struct {
         bool on;

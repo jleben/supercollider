@@ -226,14 +226,18 @@ private:
 AutoCompleter::AutoCompleter( CodeEditor *editor ):
     QObject(editor),
     mEditor(editor),
-    mScRequest( new ScRequest(Main::instance()->scProcess(), this) )
+    mCompletionRequest( new ScRequest(Main::instance()->scProcess(), this) ),
+    mMethodCallRequest( new ScRequest(Main::instance()->scProcess(), this) )
 {
     mCompletion.on = false;
+    mMethodCall.pos = -1;
 
     connect(editor, SIGNAL(cursorPositionChanged()),
             this, SLOT(onCursorChanged()));
-    connect(mScRequest, SIGNAL(response(QString,QString)),
-            this, SLOT(onResponse(QString,QString)));
+    connect(mCompletionRequest, SIGNAL(response(QString,QString)),
+            this, SLOT(onCompletionResponse(QString,QString)));
+    connect(mMethodCallRequest, SIGNAL(response(QString,QString)),
+            this, SLOT(onMethodCallResponse(QString,QString)));
 }
 
 bool AutoCompleter::eventFilter( QObject *, QEvent *ev )
@@ -351,24 +355,14 @@ void AutoCompleter::onCursorChanged()
         }
     }
 
-    updateMethodCall(cursorPos);
-}
+    if (mMethodCall.pos != -1) {
+        qDebug("Method call: cancelling sclang request");
+        mMethodCall.pos = -1;
+        // FIXME: seems like this doesn't really cancel the response!?!?
+        mMethodCallRequest->cancel();
+    }
 
-void AutoCompleter::onResponse( const QString & cmd, const QString & data )
-{
-    if (mCompletion.on && (
-        cmd == "completeClass" ||
-        cmd == "completeMethod" ||
-        cmd == "completeClassMethod"))
-    {
-        qDebug(">>> completion response...");
-        onCompletionResponse( data );
-    }
-    else if (cmd == "findMethod" )
-    {
-        qDebug(">>> method call response...");
-        onMethodCallResponse( data );
-    }
+    updateMethodCall(cursorPos);
 }
 
 void AutoCompleter::startCompletion()
@@ -476,7 +470,7 @@ void AutoCompleter::startCompletion()
     mCompletion.on = true;
     qDebug() << "Completion: ON";
     qDebug() << "Completion: sending request:" << command << contextText;
-    mScRequest->send( command, contextText );
+    mCompletionRequest->send( command, contextText );
 }
 
 void AutoCompleter::quitCompletion( const QString & reason )
@@ -485,7 +479,7 @@ void AutoCompleter::quitCompletion( const QString & reason )
 
     qDebug() << QString("Completion: OFF (%1)").arg(reason);
 
-    mScRequest->cancel();
+    mCompletionRequest->cancel();
 
     if (mCompletion.menu) {
         mCompletion.menu->hide();
@@ -496,10 +490,22 @@ void AutoCompleter::quitCompletion( const QString & reason )
     mCompletion.on = false;
 }
 
-void AutoCompleter::onCompletionResponse( const QString & data )
+void AutoCompleter::onCompletionResponse( const QString & cmd, const QString & data )
 {
+    qDebug(">>> completion response");
+
+    if ( cmd != "completeClass" &&
+         cmd != "completeMethod" &&
+         cmd != "completeClassMethod")
+        return;
+
+    if (!mCompletion.on) {
+        qWarning("Completion: sclang response while completion off!");
+        return;
+    }
+
     if (!mCompletion.menu.isNull()) {
-        qWarning("Recursive request to show completion menu!");
+        qWarning("Completion: can not show new menu - one already shown!");
         return;
     }
 
@@ -748,7 +754,7 @@ void AutoCompleter::startMethodCall()
             text.append('.');
         text.append(methodName);
 
-        mScRequest->send( "findMethod", text );
+        mMethodCallRequest->send( "findMethod", text );
     }
 }
 
@@ -897,8 +903,13 @@ void AutoCompleter::updateMethodCall( int cursorPos )
 }
 #endif
 
-void AutoCompleter::onMethodCallResponse( const QString & data )
+void AutoCompleter::onMethodCallResponse( const QString & cmd, const QString & data )
 {
+    qDebug(">>> method call response...");
+
+    if (cmd != "findMethod" )
+        return;
+
     static QPointer<CompletionMenu> popup;
 
     Q_ASSERT(popup.isNull());
@@ -961,7 +972,9 @@ void AutoCompleter::onMethodCallResponse( const QString & data )
         delete popup;
     }
 
-    if (!method.methodName.isEmpty() && mMethodCall.stack.top().position == mMethodCall.pos)
+    if (!method.methodName.isEmpty()
+        && !mMethodCall.stack.isEmpty()
+        && mMethodCall.stack.top().position == mMethodCall.pos)
     {
         mMethodCall.stack.top().method = method;
         updateMethodCall( mEditor->textCursor().position() );
