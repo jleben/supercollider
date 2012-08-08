@@ -229,7 +229,6 @@ AutoCompleter::AutoCompleter( CodeEditor *editor ):
     mScRequest( new ScRequest(Main::instance()->scProcess(), this) )
 {
     mCompletion.on = false;
-    mMethodCall.on = false;
 
     connect(editor, SIGNAL(cursorPositionChanged()),
             this, SLOT(onCursorChanged()));
@@ -354,10 +353,6 @@ void AutoCompleter::onCursorChanged()
         }
     }
 
-    // method call
-    if (mMethodCall.on)
-        mMethodCall.on = false;
-
     updateMethodCall(cursorPos);
 }
 
@@ -371,7 +366,7 @@ void AutoCompleter::onResponse( const QString & cmd, const QString & data )
     {
         onCompletionResponse( data );
     }
-    else if (mMethodCall.on && cmd == "findMethod" )
+    else if (cmd == "findMethod" )
     {
         onMethodCallResponse( data );
     }
@@ -745,29 +740,34 @@ void AutoCompleter::startMethodCall()
     {
         qDebug("method call already on stack");
         // method call popup should have been updated by updateMethodCall();
-        return;
     }
     else
+    {
         qDebug("new method call");
+        MethodCall call;
+        call.position = bracketPos;
+        mMethodCall.stack.push(call);
 
-    mMethodCall.pos = bracketPos;
-    mMethodCall.on = true;
+        // store position for sc response
+        mMethodCall.pos = bracketPos;
 
-    QString text = className;
-    if (!text.isEmpty())
-        text.append('.');
-    text.append(methodName);
+        QString text = className;
+        if (!text.isEmpty())
+            text.append('.');
+        text.append(methodName);
 
-    mScRequest->send( "findMethod", text );
+        mScRequest->send( "findMethod", text );
+    }
 }
 
 void AutoCompleter::updateMethodCall( int cursorPos )
 {
     QTextDocument *doc = document();
 
-    while (!mMethodCall.stack.isEmpty())
+    int i = mMethodCall.stack.count();
+    while (i--)
     {
-        MethodCall & call = mMethodCall.stack.top();
+        MethodCall & call = mMethodCall.stack[i];
         if (call.position >= cursorPos) {
             qDebug("updateMethodCall(): call right of cursor. popping.");
             mMethodCall.stack.pop();
@@ -800,19 +800,24 @@ void AutoCompleter::updateMethodCall( int cursorPos )
         }
 
         if (level > 0) {
-            qDebug("updateMethodCall(): current call: %s(%i)",
-                   call.method.methodName.toStdString().c_str(), arg);
-            showMethodCall(call, arg);
-            return;
+            if (call.method.methodName.isEmpty())
+                qDebug("updateMethodCall(): method call incomplete. skipping.");
+            else {
+                qDebug("updateMethodCall(): current call: %s(%i)",
+                    call.method.methodName.toStdString().c_str(), arg);
+                showMethodCall(call, arg);
+                return;
+            }
         }
         else {
+            Q_ASSERT(i == mMethodCall.stack.count() - 1);
             qDebug("updateMethodCall(): call left of cursor. popping.");
             mMethodCall.stack.pop();
         }
     }
 
     hideMethodCall();
-    qDebug("updateMethodCall(): call stack empty");
+    qDebug("updateMethodCall(): no current call on stack");
 }
 #if 0
 void AutoCompleter::updateMethodCall( int cursorPos )
@@ -905,8 +910,8 @@ void AutoCompleter::onMethodCallResponse( const QString & data )
 {
     static QPointer<CompletionMenu> popup;
 
-    Q_ASSERT(mMethodCall.on);
     Q_ASSERT(popup.isNull());
+    // FIXME: check that method call is still relevant, even before popup!
 
     std::stringstream stream;
     stream << data.toStdString();
@@ -934,8 +939,10 @@ void AutoCompleter::onMethodCallResponse( const QString & data )
         methods.append( parseMethod(entry) );
     }
 
+    Method method;
+
     if (methods.count() == 1)
-        pushMethodCall( mMethodCall.pos, methods.first() );
+        method = methods.first();
     else {
         popup = new CompletionMenu(mEditor);
 
@@ -954,14 +961,19 @@ void AutoCompleter::onMethodCallResponse( const QString & data )
             + QPoint(0,5);
 
         PopUpWidget *w = static_cast<PopUpWidget*>( popup );
-        if (w->exec(pos) && mMethodCall.on)
-        {
-            Method m = popup->currentMethod();
-            if (!m.methodName.isEmpty())
-                pushMethodCall( mMethodCall.pos, m );
+        if (!w->exec(pos)) {
+            delete popup;
+            return;
         }
 
+        method = popup->currentMethod();
         delete popup;
+    }
+
+    if (!method.methodName.isEmpty() && mMethodCall.stack.top().position == mMethodCall.pos)
+    {
+        mMethodCall.stack.top().method = method;
+        updateMethodCall( mEditor->textCursor().position() );
     }
 }
 

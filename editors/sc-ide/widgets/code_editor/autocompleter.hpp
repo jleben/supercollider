@@ -80,10 +80,14 @@ private:
 
     QTextDocument *document();
 
+    // completion
+
     void startCompletion();
     void quitCompletion( const QString & reason = QString() );
     void onCompletionResponse( const QString & data );
     void updateCompletionMenu();
+
+    // method call aid
 
     void startMethodCall();
     void updateMethodCall( int cursorPos );
@@ -91,7 +95,12 @@ private:
     void pushMethodCall( int pos, const Method &, int arg = 0 );
     void showMethodCall( const MethodCall & call, int arg = 0 );
     void hideMethodCall();
+
+    // utilities
+
     QString tokenText( TokenIterator & it );
+
+    // data
 
     CodeEditor *mEditor;
     ScRequest *mScRequest;
@@ -107,7 +116,6 @@ private:
     } mCompletion;
 
     struct {
-        bool on;
         int pos;
         QStack<MethodCall> stack;
         QPointer<MethodCallWidget> widget;
