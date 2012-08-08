@@ -82,12 +82,12 @@ private:
 
     void startCompletion();
     void quitCompletion( const QString & reason = QString() );
-
-    void showCompletionMenu( const QString & data );
+    void onCompletionResponse( const QString & data );
     void updateCompletionMenu();
 
     void startMethodCall();
     void updateMethodCall( int cursorPos );
+    void onMethodCallResponse( const QString & data );
     void pushMethodCall( int pos, const Method &, int arg = 0 );
     void showMethodCall( const MethodCall & call, int arg = 0 );
     void hideMethodCall();
@@ -107,6 +107,8 @@ private:
     } mCompletion;
 
     struct {
+        bool on;
+        int pos;
         QStack<MethodCall> stack;
         QPointer<MethodCallWidget> widget;
     } mMethodCall;

@@ -229,6 +229,7 @@ AutoCompleter::AutoCompleter( CodeEditor *editor ):
     mScRequest( new ScRequest(Main::instance()->scProcess(), this) )
 {
     mCompletion.on = false;
+    mMethodCall.on = false;
 
     connect(editor, SIGNAL(cursorPositionChanged()),
             this, SLOT(onCursorChanged()));
@@ -280,7 +281,7 @@ void AutoCompleter::keyPress( QKeyEvent *e )
     {
     case Qt::Key_ParenLeft:
     case Qt::Key_Comma:
-        //startMethodCall();
+        startMethodCall();
         break;
     case Qt::Key_Backspace:
     case Qt::Key_Delete:
@@ -344,6 +345,7 @@ void AutoCompleter::onCursorChanged()
     qDebug("cursorChanged");
     int cursorPos = mEditor->textCursor().position();
 
+    // completion
     if (mCompletion.on) {
         if (cursorPos < mCompletion.pos ||
             cursorPos > mCompletion.pos + mCompletion.len)
@@ -351,6 +353,10 @@ void AutoCompleter::onCursorChanged()
             quitCompletion("out of bounds");
         }
     }
+
+    // method call
+    if (mMethodCall.on)
+        mMethodCall.on = false;
 
     updateMethodCall(cursorPos);
 }
@@ -363,7 +369,11 @@ void AutoCompleter::onResponse( const QString & cmd, const QString & data )
         cmd == "completeMethod" ||
         cmd == "completeClassMethod"))
     {
-        showCompletionMenu( data );
+        onCompletionResponse( data );
+    }
+    else if (mMethodCall.on && cmd == "findMethod" )
+    {
+        onMethodCallResponse( data );
     }
 }
 
@@ -493,7 +503,7 @@ void AutoCompleter::quitCompletion( const QString & reason )
     mCompletion.on = false;
 }
 
-void AutoCompleter::showCompletionMenu( const QString & data )
+void AutoCompleter::onCompletionResponse( const QString & data )
 {
     if (!mCompletion.menu.isNull()) {
         qWarning("Recursive request to show completion menu!");
@@ -731,7 +741,24 @@ void AutoCompleter::startMethodCall()
            methodName.toStdString().c_str(),
            argPos);
 
-    //pushMethodCall( bracketPos, className + "." + methodName );
+    if ( !mMethodCall.stack.isEmpty() && mMethodCall.stack.last().position == bracketPos )
+    {
+        qDebug("method call already on stack");
+        // method call popup should have been updated by updateMethodCall();
+        return;
+    }
+    else
+        qDebug("new method call");
+
+    mMethodCall.pos = bracketPos;
+    mMethodCall.on = true;
+
+    QString text = className;
+    if (!text.isEmpty())
+        text.append('.');
+    text.append(methodName);
+
+    mScRequest->send( "findMethod", text );
 }
 
 void AutoCompleter::updateMethodCall( int cursorPos )
@@ -742,7 +769,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
     {
         MethodCall & call = mMethodCall.stack.top();
         if (call.position >= cursorPos) {
-            qDebug("call right of cursor. popping.");
+            qDebug("updateMethodCall(): call right of cursor. popping.");
             mMethodCall.stack.pop();
             continue;
         }
@@ -750,7 +777,7 @@ void AutoCompleter::updateMethodCall( int cursorPos )
         QTextBlock block( document()->findBlock( call.position ) );
         TokenIterator token = TokenIterator::rightOf(block, call.position - block.position());
         if (!token.isValid()) {
-            qDebug("call stack out of sync!");
+            qDebug("updateMethodCall(): call stack out of sync!");
             mMethodCall.stack.clear();
             break;
         }
@@ -773,18 +800,19 @@ void AutoCompleter::updateMethodCall( int cursorPos )
         }
 
         if (level > 0) {
-            qDebug("current call: %s(%i)", call.method.methodName.toStdString().c_str(), arg);
+            qDebug("updateMethodCall(): current call: %s(%i)",
+                   call.method.methodName.toStdString().c_str(), arg);
             showMethodCall(call, arg);
             return;
         }
         else {
-            qDebug("call left of cursor. popping.");
+            qDebug("updateMethodCall(): call left of cursor. popping.");
             mMethodCall.stack.pop();
         }
     }
 
     hideMethodCall();
-    qDebug("call stack empty");
+    qDebug("updateMethodCall(): call stack empty");
 }
 #if 0
 void AutoCompleter::updateMethodCall( int cursorPos )
@@ -872,6 +900,70 @@ void AutoCompleter::updateMethodCall( int cursorPos )
     }
 }
 #endif
+
+void AutoCompleter::onMethodCallResponse( const QString & data )
+{
+    static QPointer<CompletionMenu> popup;
+
+    Q_ASSERT(mMethodCall.on);
+    Q_ASSERT(popup.isNull());
+
+    std::stringstream stream;
+    stream << data.toStdString();
+    YAML::Parser parser(stream);
+
+    YAML::Node doc;
+    if(!parser.GetNextDocument(doc) || doc.Type() != YAML::NodeType::Sequence) {
+        qWarning("YAML parsing: document not a Sequence!");
+        return;
+    }
+
+    QList<Method> methods;
+
+    for (YAML::Iterator it = doc.begin(); it != doc.end(); ++it)
+    {
+        YAML::Node const & entry = *it;
+        if (entry.Type() != YAML::NodeType::Sequence) {
+            qWarning("YAML parsing: node not a Sequence!");
+            continue;
+        }
+        if (entry.size() < 2) {
+            qWarning("YAML parsing: two few sequence elements!");
+            continue;
+        }
+        methods.append( parseMethod(entry) );
+    }
+
+    if (methods.count() == 1)
+        pushMethodCall( mMethodCall.pos, methods.first() );
+    else {
+        popup = new CompletionMenu(mEditor);
+
+        foreach( const Method & m, methods ) {
+            QStandardItem *item = new QStandardItem();
+            item->setText(m.methodName + " (" + m.className + ')');
+            item->setData(m.methodName, CompletionMenu::CompletionRole);
+            item->setData( QVariant::fromValue<Method>(m), CompletionMenu::MethodRole );
+            popup->addItem(item);
+        }
+
+        QTextCursor cursor(document());
+        cursor.setPosition(mMethodCall.pos);
+        QPoint pos =
+            mEditor->viewport()->mapToGlobal( mEditor->cursorRect(cursor).bottomLeft() )
+            + QPoint(0,5);
+
+        PopUpWidget *w = static_cast<PopUpWidget*>( popup );
+        if (w->exec(pos) && mMethodCall.on)
+        {
+            Method m = popup->currentMethod();
+            if (!m.methodName.isEmpty())
+                pushMethodCall( mMethodCall.pos, m );
+        }
+
+        delete popup;
+    }
+}
 
 void AutoCompleter::pushMethodCall( int pos, const Method & method, int arg )
 {
