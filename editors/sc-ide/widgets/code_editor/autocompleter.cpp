@@ -48,6 +48,9 @@ static AutoCompleter::Method parseMethod( const YAML::Node & node )
     Q_ASSERT(node.Type() == YAML::NodeType::Sequence);
     Q_ASSERT(node.size() >= 2);
 
+    assert(node[0].Type() == YAML::NodeType::Scalar);
+    assert(node[1].Type() == YAML::NodeType::Scalar);
+
     AutoCompleter::Method m;
     m.className = node[0].to<std::string>().c_str();
     m.methodName = node[1].to<std::string>().c_str();
