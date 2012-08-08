@@ -115,7 +115,7 @@ private:
                 return;
 
             case tagSym: {
-                emitter << slotRawSymbol(slot)->name;
+                emitter << YAML::DoubleQuoted << slotRawSymbol(slot)->name;
                 return;
             }
 
@@ -135,7 +135,7 @@ private:
             char * cstr = new char[len + 10];
             memcpy(cstr, str->s, len);
             cstr[len] = 0; // zero-terminate
-            emitter << cstr;
+            emitter << YAML::DoubleQuoted << cstr;
             delete[] cstr;
             return;
         }
