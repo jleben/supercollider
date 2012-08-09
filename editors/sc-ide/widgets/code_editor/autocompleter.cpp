@@ -608,8 +608,7 @@ void AutoCompleter::updateCompletionMenu()
 
     if (menu->model()->hasChildren()) {
         menu->model()->sort(0);
-        if (!menu->view()->selectionModel()->hasSelection())
-            menu->view()->setCurrentIndex( menu->model()->index(0,0) );
+        menu->view()->setCurrentIndex( menu->model()->index(0,0) );
         menu->show();
     }
     else {
