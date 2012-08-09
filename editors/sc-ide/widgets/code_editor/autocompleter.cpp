@@ -380,16 +380,6 @@ void AutoCompleter::startCompletion()
     QTextBlock block( cursor.block() );
     TokenIterator it( block, cursorPos - 1 );
 
-#if 0
-    TokenIterator t(block);
-    QStringList out;
-    while( t.isValid() ) {
-        out << QString("(%1 %2)").arg(t->position).arg(t->character != 0 ? t->character : '/');
-        ++t;
-    }
-    qDebug() << "tokens:" << out;
-#endif
-
     if (!it.isValid())
         return;
 
@@ -422,9 +412,11 @@ void AutoCompleter::startCompletion()
                 cit = it;
             else
                 return;
-            it = dit.next();
-            if (tokenMaybeName(it.type()))
-                mit = it;
+            TokenIterator it = dit.next();
+            if (tokenMaybeName(it.type())
+                && it.block() == dit.block()
+                && it->position == dit->position + 1)
+                    mit = it;
         }
         else if (tokenMaybeName(token.type))
         {
@@ -818,92 +810,6 @@ void AutoCompleter::updateMethodCall( int cursorPos )
 
     hideMethodCall();
 }
-#if 0
-void AutoCompleter::updateMethodCall( int cursorPos )
-{
-    const QString rightBrackets(")]}");
-    const QString leftBrackets("([{");
-
-    if (mMethodCall.stack.isEmpty()) {
-        qDebug("stack empty");
-        return;
-    }
-
-    MethodCall & call = mMethodCall.stack.top()
-
-    QTextDocument *doc = document();
-    QTextBlock block( doc->findBlock(call.position) );
-    BracketIterator lbracket = BracketIterator::rightOf(block, call.position - block.position());
-
-    if (!lbracket.isValid()) {
-        qDebug("stack out of sync!");
-        mMethodCall.stack.clear();
-        return;
-    }
-
-    BracketIterator rbracket = lbracket;
-    ++rbracket;
-
-    while (!mMethodCall.stack.isEmpty())
-    {
-        call = mMethodCall.stack.top();
-
-        if (call.position > lbracket.position()) {
-            mMethodCall.stack.pop();
-            continue;
-        }
-
-        int arg = 0;
-        int level = 0;
-
-        // search left
-
-        while (lbracket.isValid() && lbracket.position() > call.position)
-        {
-            char ch = lbracket.character();
-            if (chr == ',' && level >= 0)
-                ++arg;
-            else if (leftBrackets.contains(chr)) {
-                ++level;
-                if (level > 0)
-                    arg = 0;
-            }
-            else if (rightBrackets.contains(chr))
-                --level;
-
-            --lbracket;
-        }
-
-        if (!lbracket.isValid() || lbracket.position() != call.position || level < 0) {
-            qDebug("stack out of sync!");
-            mMethodCall.stack.clear();
-            return;
-        }
-
-        // search right
-
-        while( level >= 0 && rbracket.isValid() && rbracket.position() < cursorPos )
-        {
-            char ch = bracket.character();
-            if (chr == ',' && level = 0)
-                ++arg;
-            else if (leftBrackets.contains(chr))
-                ++level;
-            else if (rightBrackets.contains(chr))
-                --level;
-
-            ++rbracket;
-        }
-
-        if ( level >= 0 ) {
-            qDebug() << "current method:" << call.name << "|" << arg;
-        }
-        else {
-            mMethodCall.stack.pop();
-        }
-    }
-}
-#endif
 
 void AutoCompleter::onMethodCallResponse( const QString & cmd, const QString & data )
 {
