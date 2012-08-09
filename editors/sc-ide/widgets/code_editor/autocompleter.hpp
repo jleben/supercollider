@@ -55,9 +55,6 @@ public:
     void keyPress( QKeyEvent * );
     void documentChanged( QTextDocument * );
 
-protected:
-    virtual bool eventFilter( QObject *, QEvent * );
-
 private slots:
     void onContentsChange(int pos, int removed, int added);
     void onCursorChanged();

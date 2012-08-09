@@ -176,6 +176,28 @@ public:
 
     QListView *view() { return mListView; }
 
+protected:
+    virtual bool eventFilter( QObject * obj, QEvent * ev )
+    {
+        if (isVisible() && obj == parentWidget() && ev->type() == QEvent::KeyPress)
+        {
+            QKeyEvent *kev = static_cast<QKeyEvent*>(ev);
+            switch(kev->key())
+            {
+            case Qt::Key_Up:
+            case Qt::Key_Down:
+            case Qt::Key_PageUp:
+            case Qt::Key_PageDown:
+            case Qt::Key_Return:
+            case Qt::Key_Enter:
+                QApplication::sendEvent( mListView, ev );
+                return true;
+            }
+        }
+
+        return PopUpWidget::eventFilter(obj, ev);
+    }
+
 private:
     QListView *mListView;
     QStandardItemModel *mModel;
@@ -241,32 +263,6 @@ AutoCompleter::AutoCompleter( CodeEditor *editor ):
             this, SLOT(onCompletionResponse(QString,QString)));
     connect(mMethodCallRequest, SIGNAL(response(QString,QString)),
             this, SLOT(onMethodCallResponse(QString,QString)));
-}
-
-bool AutoCompleter::eventFilter( QObject *, QEvent *ev )
-{
-    if (ev->type() == QEvent::KeyPress) {
-        QKeyEvent *kev = static_cast<QKeyEvent*>(ev);
-        switch(kev->key())
-        {
-        case Qt::Key_Backspace:
-            mEditor->textCursor().deletePreviousChar();
-            return true;
-        case Qt::Key_Delete:
-        case Qt::Key_Return:
-        case Qt::Key_Enter:
-        case Qt::Key_Escape:
-            return false;
-        }
-
-        QString text = kev->text();
-        if (!text.isEmpty()) {
-            mEditor->textCursor().insertText(text);
-            keyPress(kev);
-            return true;
-        }
-    }
-    return false;
 }
 
 void AutoCompleter::documentChanged( QTextDocument * doc )
@@ -361,7 +357,6 @@ void AutoCompleter::onCursorChanged()
     if (mMethodCall.pos != -1) {
         qDebug("Method call: cancelling sclang request");
         mMethodCall.pos = -1;
-        // FIXME: seems like this doesn't really cancel the response!?!?
         mMethodCallRequest->cancel();
     }
 
@@ -569,7 +564,6 @@ void AutoCompleter::onCompletionResponse( const QString & cmd, const QString & d
 
     mCompletion.menu = popup;
 
-    popup->view()->installEventFilter(this);
     connect(popup, SIGNAL(finished(int)), this, SLOT(onCompletionMenuFinished(int)));
 
     QTextCursor cursor(document());
