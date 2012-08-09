@@ -27,6 +27,19 @@
 
 namespace ScIDE {
 
+PopUpWidget::PopUpWidget( QWidget * parent ):
+    QWidget( parent, Qt::ToolTip ),
+    mEventLoop(0),
+    mResult(0)
+{
+    parent->installEventFilter(this);
+}
+
+PopUpWidget::~PopUpWidget()
+{
+    quit();
+}
+
 int PopUpWidget::exec( const QPoint & pos )
 {
     if (mEventLoop) {
@@ -85,6 +98,26 @@ void PopUpWidget::showEvent( QShowEvent *e )
     }
 
     move(r.topLeft());
+}
+
+bool PopUpWidget::eventFilter( QObject *obj, QEvent *ev )
+{
+    if (!isVisible())
+        return false;
+
+    if (obj == parentWidget() && ev->type() == QEvent::FocusOut)
+        reject();
+
+    if (ev->type() == QEvent::ShortcutOverride) {
+        qDebug("eventFilter -> ShortcutOverride");
+        QKeyEvent * kev = static_cast<QKeyEvent*>(ev);
+        if (kev->key() == Qt::Key_Escape) {
+            reject();
+            return true;
+        }
+    }
+
+    return false;
 }
 
 } // namespace ScIDE

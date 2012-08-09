@@ -38,16 +38,9 @@ public:
     };
 
 public:
-    PopUpWidget( QWidget * parent = 0 ):
-        QWidget( parent, Qt::Popup ),
-        mEventLoop(0),
-        mResult(0)
-    {}
+    PopUpWidget( QWidget * parent = 0 );
 
-    ~PopUpWidget()
-    {
-        quit();
-    }
+    virtual ~PopUpWidget();
 
     int exec( const QPoint & pos );
 
@@ -94,6 +87,8 @@ protected:
     virtual void keyPressEvent( QKeyEvent *ke );
 
     virtual void showEvent( QShowEvent * );
+
+    virtual bool eventFilter( QObject *, QEvent * );
 
 private:
 
