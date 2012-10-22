@@ -22,6 +22,7 @@
 
 #include "help_browser.hpp"
 #include "main_window.hpp"
+#include "util/dock_widget_title_bar.hpp"
 #include "../core/sc_process.hpp"
 #include "../core/main.hpp"
 #include "QtCollider/widgets/web_page.hpp"
@@ -34,6 +35,7 @@
 #include <QShortcut>
 #include <QApplication>
 #include <QDesktopWidget>
+#include <QDebug>
 
 namespace ScIDE {
 
@@ -65,19 +67,16 @@ HelpBrowser::HelpBrowser( QWidget * parent ):
     mLoadProgressIndicator = new LoadProgressIndicator;
     mLoadProgressIndicator->setIndent(10);
 
-    QToolBar *toolBar = new QToolBar;
-    toolBar->setIconSize( QSize(16,16) );
-    QAction *action = toolBar->addAction("Home");
+    QAction *action = new QAction("Home", this);
     connect( action, SIGNAL(triggered()), this, SLOT(goHome()) );
-    toolBar->addAction( mWebView->pageAction(QWebPage::Back) );
-    toolBar->addAction( mWebView->pageAction(QWebPage::Forward) );
-    toolBar->addAction( mWebView->pageAction(QWebPage::Reload) );
-    toolBar->addWidget(mLoadProgressIndicator);
+    addAction(action);
+    addAction( mWebView->pageAction(QWebPage::Back) );
+    addAction( mWebView->pageAction(QWebPage::Forward) );
+    addAction( mWebView->pageAction(QWebPage::Reload) );
 
     QVBoxLayout *layout = new QVBoxLayout;
     layout->setContentsMargins(0,0,0,0);
     layout->setSpacing(0);
-    layout->addWidget(toolBar);
     layout->addWidget(mWebView);
     setLayout(layout);
 
@@ -237,6 +236,25 @@ void HelpBrowser::onJsConsoleMsg(const QString &arg1, int arg2, const QString & 
     qWarning() << "*** ERROR in JavaScript:" << arg1;
     qWarning() << "* line:" << arg2;
     qWarning() << "* source ID:" << arg3;
+}
+
+HelpBrowserDockable::HelpBrowserDockable( QWidget *parent ):
+    QDockWidget("Help browser", parent)
+{
+    mHelpBrowser = new HelpBrowser;
+
+    setAllowedAreas(Qt::AllDockWidgetAreas);
+    setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
+    setWidget(mHelpBrowser);
+
+    DockWidgetTitleBar *titleBar = new DockWidgetTitleBar(this);
+    titleBar->addWidget( mHelpBrowser->loadProgressIndicator(), 1 );
+    QList<QAction*> actions = mHelpBrowser->actions();
+    foreach(QAction *action, actions)
+        titleBar->addAction(action);
+    setTitleBarWidget(titleBar);
+
+    connect( mHelpBrowser, SIGNAL(urlChanged()), this, SLOT(show()) );
 }
 
 } // namespace ScIDE

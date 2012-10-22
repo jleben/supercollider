@@ -83,14 +83,7 @@ private:
 class DocumentsDock : public QDockWidget
 {
 public:
-    DocumentsDock(DocumentManager *manager, QWidget* parent = 0):
-        QDockWidget(tr("Documents"), parent),
-        mDocList(new DocumentListWidget(manager))
-    {
-        setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-        setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
-        setWidget(mDocList);
-    }
+    DocumentsDock(DocumentManager *manager, QWidget* parent = 0);
 
     DocumentListWidget *list() { return mDocList; }
 

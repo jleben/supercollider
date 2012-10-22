@@ -21,6 +21,7 @@
 #include "main_window.hpp"
 #include "post_window.hpp"
 #include "util/gui_utilities.hpp"
+#include "util/dock_widget_title_bar.hpp"
 #include "../core/main.hpp"
 #include "../core/settings/manager.hpp"
 
@@ -31,7 +32,6 @@
 #include <QPointer>
 #include <QScrollBar>
 #include <QShortcut>
-#include <QToolBar>
 
 namespace ScIDE {
 
@@ -40,6 +40,7 @@ PostWindow::PostWindow(QWidget* parent):
 {
     setReadOnly(true);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    setFrameShape( QFrame::NoFrame );
 
     QRect availableScreenRect = qApp->desktop()->availableGeometry(this);
     mSizeHint = QSize( availableScreenRect.width() * 0.4, availableScreenRect.height() * 0.3 );
@@ -255,16 +256,8 @@ PostDock::PostDock(QWidget* parent):
     mPostWindow = new PostWindow(this);
     setWidget(mPostWindow);
 
-    QToolBar *toolBar = new QToolBar();
-    toolBar->addAction(mPostWindow->mAutoScrollAction);
-
-    QWidget *titleBar = new QWidget();
-    QHBoxLayout *l = new QHBoxLayout();
-    l->setContentsMargins(5,2,5,0);
-    l->addWidget(new QLabel(windowTitle()), 1);
-    l->addWidget(toolBar);
-    titleBar->setLayout(l);
-
+    DockWidgetTitleBar *titleBar = new DockWidgetTitleBar(this);
+    titleBar->addAction( mPostWindow->mAutoScrollAction );
     setTitleBarWidget(titleBar);
 
     connect(this, SIGNAL(topLevelChanged(bool)), this, SLOT(onFloatingChanged(bool)));
