@@ -49,6 +49,9 @@ public:
     ( ContentsType, const QStyleOption *, const QSize & , const QWidget * = 0 ) const;
 
     virtual int pixelMetric ( PixelMetric, const QStyleOption * = 0, const QWidget * = 0 ) const;
+
+    virtual int styleHint ( StyleHint, const QStyleOption * = 0, const QWidget * = 0,
+                            QStyleHintReturn * = 0 ) const;
 };
 
 } // namespace ScIDE

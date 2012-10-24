@@ -214,6 +214,12 @@ void Style::drawControl
         painter->drawRect( option->rect );
         painter->restore();
         return;
+    case CE_MenuBarEmptyArea:
+        painter->save();
+        painter->setPen(Qt::black);
+        painter->drawLine(option->rect.bottomLeft(), option->rect.bottomRight());
+        painter->restore();
+        return;
     default:
         break;
     }
@@ -235,6 +241,13 @@ void Style::drawPrimitive
         painter->drawRect( option->rect );
         painter->restore();
         return;
+    /*case PE_PanelMenuBar:
+        QProxyStyle::drawPrimitive(element, option, painter, widget);
+        painter->save();
+        painter->setPen(Qt::black);
+        painter->drawLine(option->rect.bottomLeft(), option->rect.bottomRight());
+        painter->restore();
+        return;*/
     default:
         QProxyStyle::drawPrimitive(element, option, painter, widget);
     }
@@ -318,10 +331,23 @@ int	Style::pixelMetric
         return 24;
     case PM_TabBar_ScrollButtonOverlap:
         return 1;
+    case QStyle::PM_MenuBarVMargin:
+        return 1;
     default:
         break;
     }
     return QProxyStyle::pixelMetric(metric, option, widget);
+}
+
+int Style::styleHint
+( StyleHint hint, const QStyleOption * option, const QWidget * widget,
+  QStyleHintReturn * returnData ) const
+{
+    switch(hint) {
+    default:
+        break;
+    }
+    return QProxyStyle::styleHint(hint, option, widget, returnData);
 }
 
 } // namespace ScIDE
