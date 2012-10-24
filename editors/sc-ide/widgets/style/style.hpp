@@ -40,6 +40,11 @@ public:
     virtual void drawControl
     ( ControlElement, const QStyleOption *, QPainter *, const QWidget * = 0 ) const;
 
+    virtual QRect subElementRect ( SubElement, const QStyleOption *, const QWidget * = 0 ) const;
+
+    virtual QSize sizeFromContents
+    ( ContentsType, const QStyleOption *, const QSize & , const QWidget * = 0 ) const;
+
     virtual int pixelMetric ( PixelMetric, const QStyleOption * = 0, const QWidget * = 0 ) const;
 };
 
