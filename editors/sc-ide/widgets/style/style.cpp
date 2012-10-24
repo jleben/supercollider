@@ -56,8 +56,7 @@ void Style::polish ( QWidget * widget )
     {
         static QPalette palette( QColor(85,85,85), QColor(85,85,85) );
         widget->setPalette(palette);
-        // TODO:
-        QProxyStyle::polish(widget);
+        widget->setAttribute(Qt::WA_Hover, true);
     }
     else
         QProxyStyle::polish(widget);
