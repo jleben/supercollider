@@ -66,7 +66,11 @@ void Style::drawComplexControl
     case QStyle::CC_ToolButton:
     {
         const QToolButton *toolBtn = qobject_cast<const QToolButton*>(widget);
+        if (!toolBtn)
+            break;
+
         Q_ASSERT(toolBtn);
+
         const QStyleOptionToolButton *toolOption =
                 static_cast<const QStyleOptionToolButton*>(option);
 
@@ -228,27 +232,6 @@ void Style::drawPrimitive
     case QStyle::PE_IndicatorTabTear:
     case QStyle::PE_FrameTabBarBase:
         return;
-    case QStyle::PE_PanelButtonTool: {
-        const QToolButton *toolBtn = qobject_cast<const QToolButton*>(widget);
-
-        painter->save();
-
-        QRect r = option->rect.adjusted(0,0,-1,-1);
-        if (toolBtn->arrowType() == Qt::LeftArrow)
-            r.adjust(0,0,1,0);
-        else if (toolBtn->arrowType() == Qt::RightArrow)
-            r.adjust(-1,0,0,0);
-
-        painter->setBrush( QColor(85,85,85) );
-        painter->setPen( QColor(50,50,50) );
-        painter->drawRect( r );
-
-        painter->setPen( QColor(110,110,110) );
-        painter->drawLine( r.left() + 1, 1, r.right() - 1, 1 );
-
-        painter->restore();
-        return;
-    }
     default:
         QProxyStyle::drawPrimitive(element, option, painter, widget);
     }
