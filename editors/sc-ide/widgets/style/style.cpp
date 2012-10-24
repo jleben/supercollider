@@ -218,6 +218,13 @@ void Style::drawControl
         painter->drawText( textRect, Qt::AlignVCenter | Qt::AlignLeft, tabOption->text );
         return;
     }
+    case CE_Splitter:
+        painter->save();
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(Qt::black);
+        painter->drawRect( option->rect );
+        painter->restore();
+        return;
     default:
         break;
     }
@@ -231,6 +238,13 @@ void Style::drawPrimitive
     switch (element) {
     case QStyle::PE_IndicatorTabTear:
     case QStyle::PE_FrameTabBarBase:
+        return;
+    case PE_IndicatorDockWidgetResizeHandle:
+        painter->save();
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(Qt::black);
+        painter->drawRect( option->rect );
+        painter->restore();
         return;
     default:
         QProxyStyle::drawPrimitive(element, option, painter, widget);
