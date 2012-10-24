@@ -46,8 +46,10 @@ QSize DockWidgetTitleBarButton::sizeHint() const
     if (!icon.isNull())
         return iconSize() + QSize(10,10);
     QString text = this->text();
-    if (!text.isEmpty())
-        return QFontMetrics(font()).boundingRect(text).size() + QSize(10,10);
+    if (!text.isEmpty()) {
+        QFontMetrics fm(font());
+        return QSize( fm.boundingRect(text).width(), fm.height() ) + QSize(10,10);
+    }
     return QSize();
 }
 
@@ -63,57 +65,11 @@ void DockWidgetTitleBarButton::leaveEvent( QEvent * event )
     update();
 }
 
-void DockWidgetTitleBarButton::paintEvent( QPaintEvent *event )
-{
-    QPainter painter(this);
-
-    if (isEnabled() && (isChecked() || underMouse())) {
-        painter.save();
-
-        QRect r = rect();
-
-        if (isChecked()) {
-            QColor fill = QColor(60,60,60);
-            QColor border = QColor(40,40,40);
-            painter.setPen( border );
-            painter.setBrush( fill );
-            r.adjust(0,0,-1,-1);
-        } else {
-            painter.setPen( Qt::NoPen );
-            QColor fill = Qt::white;
-            fill.setAlpha(50);
-            painter.setBrush( fill );
-            r.adjust(1,1,-1,-1);
-        }
-
-        painter.drawRect(r);
-
-        painter.restore();
-    }
-
-    QIcon icon = this->icon();
-    if (!icon.isNull()) {
-        QPixmap pixmap = icon.pixmap(iconSize(),
-                                     isEnabled() ? QIcon::Normal
-                                                 : QIcon::Disabled,
-                                     isChecked() ? QIcon::On
-                                                 : QIcon::Off);
-        QRect pixRect = pixmap.rect();
-        pixRect.moveCenter( rect().center() );
-        painter.drawPixmap(pixRect.topLeft(), pixmap);
-        return;
-    }
-
-    QString text = this->text();
-    if (!text.isEmpty()) {
-        style()->drawItemText( &painter, rect(), Qt::AlignCenter, palette(),
-                               isEnabled(), text, QPalette::Text );
-    }
-}
-
 DockWidgetTitleBar::DockWidgetTitleBar( QDockWidget *widget ):
     mDockWidget(widget)
 {
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
     QPalette palette( this->palette() );
     palette.setColor( QPalette::WindowText, Qt::white );
     palette.setColor( QPalette::Text, Qt::white );
@@ -131,7 +87,8 @@ DockWidgetTitleBar::DockWidgetTitleBar( QDockWidget *widget ):
     connect( action, SIGNAL(triggered(bool)), widget, SLOT(hide()) );
 
     DockWidgetTitleBarButton *optionsBtn = new DockWidgetTitleBarButton;
-    optionsBtn->setIcon( style()->standardIcon(QStyle::SP_TitleBarNormalButton) );
+    optionsBtn->setIcon( optionsBtn->style()->standardIcon(QStyle::SP_TitleBarNormalButton) );
+    optionsBtn->setIconSize( QSize(16,16) );
     optionsBtn->setMenu( optionsMenu );
     optionsBtn->setPopupMode( QToolButton::InstantPopup );
 

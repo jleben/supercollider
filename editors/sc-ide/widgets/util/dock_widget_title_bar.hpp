@@ -38,7 +38,6 @@ public:
 protected:
     virtual void enterEvent( QEvent * event );
     virtual void leaveEvent( QEvent * event );
-    virtual void paintEvent( QPaintEvent *event );
 };
 
 class DockWidgetTitleBar : public QWidget

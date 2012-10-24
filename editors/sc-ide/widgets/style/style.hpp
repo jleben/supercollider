@@ -40,6 +40,9 @@ public:
     virtual void drawControl
     ( ControlElement, const QStyleOption *, QPainter *, const QWidget * = 0 ) const;
 
+    virtual void drawComplexControl
+    ( ComplexControl, const QStyleOptionComplex *, QPainter *, const QWidget * = 0 ) const;
+
     virtual QRect subElementRect ( SubElement, const QStyleOption *, const QWidget * = 0 ) const;
 
     virtual QSize sizeFromContents

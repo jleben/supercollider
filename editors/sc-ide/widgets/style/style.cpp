@@ -26,6 +26,7 @@
 #include <QDockWidget>
 #include <QStyleOptionTabV3>
 #include <QTabBar>
+#include <QToolButton>
 #include <QDebug>
 
 namespace ScIDE {
@@ -33,14 +34,15 @@ namespace ScIDE {
 void Style::polish ( QWidget * widget )
 {
     if (qobject_cast<QDockWidget*>(widget)) {
-        QStyle::polish(widget);
+        return;
     }
-    else if (QTabBar *tabBar = qobject_cast<QTabBar*>(widget)) {
+    if ( (qobject_cast<QTabBar*>(widget))
+         || (qobject_cast<QToolButton*>(widget)) )
+    {
+        static QPalette palette( QColor(85,85,85), QColor(85,85,85) );
+        widget->setPalette(palette);
+        // TODO:
         QProxyStyle::polish(widget);
-        QPalette palette( tabBar->palette() );
-        palette.setColor( QPalette::WindowText, Qt::white );
-        palette.setColor( QPalette::Text, Qt::white );
-        tabBar->setPalette(palette);
     }
     else
         QProxyStyle::polish(widget);
@@ -56,6 +58,113 @@ void Style::unpolish ( QWidget * widget )
         QProxyStyle::unpolish(widget);
 }
 
+void Style::drawComplexControl
+( ComplexControl control, const QStyleOptionComplex * option,
+  QPainter * painter, const QWidget * widget ) const
+{
+    switch(control) {
+    case QStyle::CC_ToolButton:
+    {
+        const QToolButton *toolBtn = qobject_cast<const QToolButton*>(widget);
+        Q_ASSERT(toolBtn);
+        const QStyleOptionToolButton *toolOption =
+                static_cast<const QStyleOptionToolButton*>(option);
+
+        painter->save();
+
+        QRect r = option->rect;
+
+        if (option->state & QStyle::State_On) {
+            painter->setBrush( QColor(60,60,60) );
+            painter->setPen( QColor(40,40,40) );
+            painter->drawRect( r.adjusted(0,0,-1,-1) );
+        }
+        else {
+            if (toolBtn->arrowType() == Qt::LeftArrow)
+                r.adjust(1,1,0,-1);
+            else if (toolBtn->arrowType() == Qt::RightArrow)
+                r.adjust(0,1,-1,-1);
+            else
+                r.adjust(1,1,-1,-1);
+
+            QColor fill = option->state & QStyle::State_MouseOver
+                    ? QColor(120,120,120)
+                    : QColor(85,85,85);
+
+            QColor edge =  option->state & QStyle::State_MouseOver
+                    ? QColor(140,140,140)
+                    : QColor(110,110,110);
+
+            painter->setBrush(fill);
+            painter->setPen(Qt::NoPen);
+            painter->drawRect(r);
+
+            painter->setPen(edge);
+            painter->drawLine( r.topLeft(), r.topRight() );
+
+            if (toolBtn->arrowType() == Qt::LeftArrow) {
+                painter->setPen( QColor(50,50,50) );
+                painter->drawLine( option->rect.topLeft(), option->rect.bottomLeft() );
+            }
+            else if (toolBtn->arrowType() == Qt::RightArrow) {
+                painter->setPen( QColor(50,50,50) );
+                painter->drawLine( option->rect.topRight(), option->rect.bottomRight() );
+            }
+        }
+
+        painter->restore();
+
+        QIcon icon = toolOption->icon;
+        if (!icon.isNull())
+        {
+            QIcon::Mode iconMode =
+                    option->state & QStyle::State_Enabled
+                    ? ( option->state & QStyle::State_MouseOver
+                        ? QIcon::Active
+                        : QIcon::Normal )
+                    : QIcon::Disabled;
+
+            QIcon::State iconState =
+                    option ->state & QStyle::State_Selected
+                    ? QIcon::On : QIcon::Off;
+
+            QPixmap pixmap = icon.pixmap(toolOption->iconSize, iconMode, iconState);
+            QRect pixRect = pixmap.rect();
+            pixRect.moveCenter( option->rect.center() );
+            painter->drawPixmap(pixRect.topLeft(), pixmap);
+        }
+        else {
+            QStyle::PrimitiveElement elem = Style::PE_CustomBase;
+            switch(toolBtn->arrowType()) {
+            case Qt::LeftArrow:
+                elem = PE_IndicatorArrowLeft; break;
+            case Qt::RightArrow:
+                elem = PE_IndicatorArrowRight; break;
+            case Qt::DownArrow:
+                elem = PE_IndicatorArrowDown; break;
+            case Qt::UpArrow:
+                elem = PE_IndicatorArrowUp; break;
+            default:
+                break;
+            }
+            if (elem != Style::PE_CustomBase) {
+                drawPrimitive( elem, option, painter, widget );
+            }
+            else if (!toolOption->text.isEmpty()) {
+                drawItemText( painter, toolOption->rect, Qt::AlignCenter,
+                              toolOption->palette,
+                              option->state & QStyle::State_Enabled,
+                              toolOption->text, QPalette::Text );
+            }
+        }
+        return;
+    }
+    default:
+        break;
+    }
+    QProxyStyle::drawComplexControl(control, option, painter, widget);
+}
+
 void Style::drawControl
 ( ControlElement element, const QStyleOption * option,
   QPainter * painter, const QWidget * widget ) const
@@ -64,17 +173,30 @@ void Style::drawControl
     case QStyle::CE_TabBarTab: {
         const QStyleOptionTabV3 *tabOption = static_cast<const QStyleOptionTabV3*>(option);
 
-        painter->save();
-        painter->setPen( Qt::NoPen );
-        QColor fill;
-        if (tabOption->state & QStyle::State_Selected || tabOption->state & QStyle::State_MouseOver)
-            fill = QColor(120,120,120);
-        else
-            fill = QColor(85,85,85);
+        painter->save();;
+
+        bool highlight = tabOption->state & QStyle::State_Selected
+                || tabOption->state & QStyle::State_MouseOver;
+
+        QColor fill = highlight ? QColor(120,120,120) : QColor(85,85,85);
+
+        QColor edge =  highlight ? QColor(140,140,140) : QColor(110,110,110);
+
         painter->setBrush( fill );
-        int lmargin = tabOption->position == QStyleOptionTab::Beginning ? 1 : 0;
-        int rmargin = tabOption->position == QStyleOptionTab::End ? -1 : 0;
-        painter->drawRect( tabOption->rect.adjusted(lmargin,2,rmargin,-1) );
+        int lmargin =
+                tabOption->position == QStyleOptionTab::Beginning ||
+                tabOption->position == QStyleOptionTab::OnlyOneTab
+                ? 1 : 0;
+        int rmargin = tabOption->position == QStyleOptionTab::End ||
+                tabOption->position == QStyleOptionTab::OnlyOneTab
+                ? -1 : 0;
+        QRect r = tabOption->rect.adjusted(lmargin,1,rmargin,-1);
+        painter->setPen( edge );
+        painter->drawLine( r.topLeft(), r.topRight() );
+        r.adjust(0,1,0,0);
+        painter->setPen( Qt::NoPen );
+        painter->drawRect(r);
+
         painter->restore();
 
         if (!tabOption->icon.isNull()) {
@@ -103,6 +225,30 @@ void Style::drawPrimitive
   QPainter * painter, const QWidget * widget ) const
 {
     switch (element) {
+    case QStyle::PE_IndicatorTabTear:
+    case QStyle::PE_FrameTabBarBase:
+        return;
+    case QStyle::PE_PanelButtonTool: {
+        const QToolButton *toolBtn = qobject_cast<const QToolButton*>(widget);
+
+        painter->save();
+
+        QRect r = option->rect.adjusted(0,0,-1,-1);
+        if (toolBtn->arrowType() == Qt::LeftArrow)
+            r.adjust(0,0,1,0);
+        else if (toolBtn->arrowType() == Qt::RightArrow)
+            r.adjust(-1,0,0,0);
+
+        painter->setBrush( QColor(85,85,85) );
+        painter->setPen( QColor(50,50,50) );
+        painter->drawRect( r );
+
+        painter->setPen( QColor(110,110,110) );
+        painter->drawLine( r.left() + 1, 1, r.right() - 1, 1 );
+
+        painter->restore();
+        return;
+    }
     default:
         QProxyStyle::drawPrimitive(element, option, painter, widget);
     }
@@ -175,11 +321,17 @@ int	Style::pixelMetric
     case QStyle::PM_TabBarTabVSpace:
     case QStyle::PM_TabBarTabShiftHorizontal:
     case QStyle::PM_TabBarTabShiftVertical:
+    case QStyle::PM_TabBarTabOverlap:
         return 0;
     case QStyle::PM_TabBarIconSize:
         return 16;
     case PM_TabCloseIndicatorHeight:
+    case PM_TabCloseIndicatorWidth:
         return 16;
+    case PM_TabBarScrollButtonWidth:
+        return 24;
+    case PM_TabBar_ScrollButtonOverlap:
+        return 1;
     default:
         break;
     }
