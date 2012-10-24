@@ -150,10 +150,9 @@ void Style::drawComplexControl
                 drawPrimitive( elem, option, painter, widget );
             }
             else if (!toolOption->text.isEmpty()) {
-                drawItemText( painter, toolOption->rect, Qt::AlignCenter,
-                              toolOption->palette,
-                              option->state & QStyle::State_Enabled,
-                              toolOption->text, QPalette::Text );
+                painter->drawText( toolOption->rect,
+                                   Qt::AlignCenter | Qt::TextShowMnemonic,
+                                   toolOption->text );
             }
         }
         return;
@@ -204,7 +203,9 @@ void Style::drawControl
         }
 
         QRect textRect = subElementRect( QStyle::SE_TabBarTabText, option, widget );
-        painter->drawText( textRect, Qt::AlignVCenter | Qt::AlignLeft, tabOption->text );
+        painter->drawText( textRect,
+                           Qt::AlignVCenter | Qt::AlignLeft | Qt::TextShowMnemonic,
+                           tabOption->text );
         return;
     }
     case CE_Splitter:
