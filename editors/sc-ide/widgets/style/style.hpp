@@ -52,6 +52,9 @@ public:
 
     virtual int styleHint ( StyleHint, const QStyleOption * = 0, const QWidget * = 0,
                             QStyleHintReturn * = 0 ) const;
+
+private:
+    bool shouldNotHandle(const QWidget *widget) const;
 };
 
 } // namespace ScIDE

@@ -27,12 +27,27 @@
 #include <QStyleOptionTabV3>
 #include <QTabBar>
 #include <QToolButton>
+#include <QLayout>
 #include <QDebug>
 
 namespace ScIDE {
 
+inline bool Style::shouldNotHandle(const QWidget* widget) const
+{
+    return widget ? widget->window()->windowType() == Qt::Dialog : false;
+}
+
 void Style::polish ( QWidget * widget )
 {
+    if (shouldNotHandle(widget)) {
+        QProxyStyle::polish(widget);
+        widget->update();
+        widget->updateGeometry();
+        if (widget->layout())
+            widget->layout()->invalidate();
+        return;
+    }
+
     if (qobject_cast<QDockWidget*>(widget)) {
         return;
     }
@@ -51,17 +66,18 @@ void Style::polish ( QWidget * widget )
 
 void Style::unpolish ( QWidget * widget )
 {
-    if (qobject_cast<QDockWidget*>(widget)) {
-        QStyle::unpolish(widget);
-    }
-    else
-        QProxyStyle::unpolish(widget);
+    QProxyStyle::unpolish(widget);
 }
 
 void Style::drawComplexControl
 ( ComplexControl control, const QStyleOptionComplex * option,
   QPainter * painter, const QWidget * widget ) const
 {
+    if (shouldNotHandle(widget)) {
+        QProxyStyle::drawComplexControl(control, option, painter, widget);
+        return;
+    }
+
     switch(control) {
     case QStyle::CC_ToolButton:
     {
@@ -167,6 +183,11 @@ void Style::drawControl
 ( ControlElement element, const QStyleOption * option,
   QPainter * painter, const QWidget * widget ) const
 {
+    if (shouldNotHandle(widget)) {
+        QProxyStyle::drawControl(element, option, painter, widget);
+        return;
+    }
+
     switch(element) {
     case QStyle::CE_TabBarTab: {
         const QStyleOptionTabV3 *tabOption = static_cast<const QStyleOptionTabV3*>(option);
@@ -231,6 +252,11 @@ void Style::drawPrimitive
 ( PrimitiveElement element, const QStyleOption * option,
   QPainter * painter, const QWidget * widget ) const
 {
+    if (shouldNotHandle(widget)) {
+        QProxyStyle::drawPrimitive(element, option, painter, widget);
+        return;
+    }
+
     switch (element) {
     case QStyle::PE_IndicatorTabTear:
     case QStyle::PE_FrameTabBarBase:
@@ -257,6 +283,10 @@ void Style::drawPrimitive
 QRect Style::subElementRect
 ( SubElement element, const QStyleOption * option, const QWidget * widget ) const
 {
+    if (shouldNotHandle(widget)) {
+        return QProxyStyle::subElementRect(element, option, widget);
+    }
+
     switch(element) {
     // NOTE: Assuming horizontal tab bar direction
     case QStyle::SE_TabBarTabRightButton: {
@@ -299,6 +329,10 @@ QSize Style::sizeFromContents
 ( ContentsType type, const QStyleOption * option, const QSize & contentsSize,
   const QWidget * widget ) const
 {
+    if (shouldNotHandle(widget)) {
+        return QProxyStyle::sizeFromContents(type, option, contentsSize, widget);
+    }
+
     switch(type) {
     case QStyle::CT_TabBarTab:
         return contentsSize + QSize(10, 10);
@@ -310,6 +344,10 @@ QSize Style::sizeFromContents
 int	Style::pixelMetric
 ( PixelMetric metric, const QStyleOption * option, const QWidget * widget ) const
 {
+    if (shouldNotHandle(widget)) {
+        return QProxyStyle::pixelMetric(metric, option, widget);
+    }
+
     switch(metric) {
     case QStyle::PM_DockWidgetFrameWidth:
         return 2;
@@ -344,6 +382,10 @@ int Style::styleHint
 ( StyleHint hint, const QStyleOption * option, const QWidget * widget,
   QStyleHintReturn * returnData ) const
 {
+    if (shouldNotHandle(widget)) {
+        return QProxyStyle::styleHint(hint, option, widget, returnData);
+    }
+
     switch(hint) {
     default:
         break;
