@@ -201,10 +201,10 @@ protected:
         QPainter painter(this);
         painter.setBrush( QColor(85,85,85) );
         painter.setPen( QColor(50,50,50) );
-        painter.drawRect( rect().adjusted(0,0,-1,-1) );
+        painter.drawRect( rect().adjusted(-1,-1,0,-1) );
 
         painter.setPen( QColor(110,110,110) );
-        painter.drawLine( 1, 1, rect().right() - 1, 1 );
+        painter.drawLine( 0, 0, rect().right(), 0 );
 
         QTabBar::paintEvent(event);
     }

@@ -84,12 +84,7 @@ void Style::drawComplexControl
             painter->drawRect( r.adjusted(0,0,-1,-1) );
         }
         else {
-            if (toolBtn->arrowType() == Qt::LeftArrow)
-                r.adjust(1,1,0,-1);
-            else if (toolBtn->arrowType() == Qt::RightArrow)
-                r.adjust(0,1,-1,-1);
-            else
-                r.adjust(1,1,-1,-1);
+            r.adjust(0,0,0,-1);
 
             QColor fill = option->state & QStyle::State_MouseOver
                     ? QColor(120,120,120)
@@ -186,20 +181,14 @@ void Style::drawControl
 
         QColor edge =  highlight ? QColor(140,140,140) : QColor(110,110,110);
 
+        QRect r = tabOption->rect.adjusted(0,0,0,-1);
+
         painter->setBrush( fill );
-        int lmargin =
-                tabOption->position == QStyleOptionTab::Beginning ||
-                tabOption->position == QStyleOptionTab::OnlyOneTab
-                ? 1 : 0;
-        int rmargin = tabOption->position == QStyleOptionTab::End ||
-                tabOption->position == QStyleOptionTab::OnlyOneTab
-                ? -1 : 0;
-        QRect r = tabOption->rect.adjusted(lmargin,1,rmargin,-1);
-        painter->setPen( edge );
-        painter->drawLine( r.topLeft(), r.topRight() );
-        r.adjust(0,1,0,0);
         painter->setPen( Qt::NoPen );
         painter->drawRect(r);
+
+        painter->setPen( edge );
+        painter->drawLine( r.topLeft(), r.topRight() );
 
         painter->restore();
 
