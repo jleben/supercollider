@@ -80,6 +80,8 @@ void Style::drawComplexControl
     switch(control) {
     case QStyle::CC_ToolButton:
     {
+        // TODO: We only draw either text, or icon, or arrow
+
         const QToolButton *toolBtn = qobject_cast<const QToolButton*>(widget);
         if (!toolBtn)
             break;
@@ -334,6 +336,7 @@ QSize Style::sizeFromContents
 
     switch(type) {
     case QStyle::CT_TabBarTab:
+    case QStyle::CT_ToolButton:
         return contentsSize + QSize(10, 10);
     default:
         return QProxyStyle::sizeFromContents(type, option, contentsSize, widget);
@@ -371,6 +374,8 @@ int	Style::pixelMetric
         return 1;
     case QStyle::PM_MenuBarVMargin:
         return 1;
+    case PM_MenuButtonIndicator:
+        return 0;
     default:
         break;
     }

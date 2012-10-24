@@ -33,38 +33,6 @@
 
 namespace ScIDE {
 
-DockWidgetTitleBarButton::DockWidgetTitleBarButton( QWidget * parent ):
-    QToolButton(parent)
-{
-    setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
-}
-
-QSize DockWidgetTitleBarButton::sizeHint() const
-{
-    QIcon icon = this->icon();
-    QSize contentSize;
-    if (!icon.isNull())
-        return iconSize() + QSize(10,10);
-    QString text = this->text();
-    if (!text.isEmpty()) {
-        QFontMetrics fm(font());
-        return QSize( fm.boundingRect(text).width(), fm.height() ) + QSize(10,10);
-    }
-    return QSize();
-}
-
-void DockWidgetTitleBarButton::enterEvent( QEvent * event )
-{
-    QToolButton::enterEvent(event);
-    update();
-}
-
-void DockWidgetTitleBarButton::leaveEvent( QEvent * event )
-{
-    QToolButton::leaveEvent(event);
-    update();
-}
-
 DockWidgetTitleBar::DockWidgetTitleBar( QDockWidget *widget ):
     mDockWidget(widget)
 {
@@ -86,11 +54,13 @@ DockWidgetTitleBar::DockWidgetTitleBar( QDockWidget *widget ):
     action->setEnabled( widget->features() & QDockWidget::DockWidgetClosable );
     connect( action, SIGNAL(triggered(bool)), widget, SLOT(hide()) );
 
-    DockWidgetTitleBarButton *optionsBtn = new DockWidgetTitleBarButton;
+    QToolButton *optionsBtn = new QToolButton;
     optionsBtn->setIcon( optionsBtn->style()->standardIcon(QStyle::SP_TitleBarNormalButton) );
     optionsBtn->setIconSize( QSize(16,16) );
     optionsBtn->setMenu( optionsMenu );
     optionsBtn->setPopupMode( QToolButton::InstantPopup );
+    optionsBtn->setToolButtonStyle( Qt::ToolButtonIconOnly );
+    optionsBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
     QLabel *titleLabel = new QLabel(widget->windowTitle());
     titleLabel->setMargin(5);
@@ -110,9 +80,12 @@ DockWidgetTitleBar::DockWidgetTitleBar( QDockWidget *widget ):
 
 void DockWidgetTitleBar::addAction (QAction *action)
 {
-    DockWidgetTitleBarButton *btn = new DockWidgetTitleBarButton;
+    QToolButton *btn = new QToolButton;
     btn->setIconSize( QSize(16,16) );
     btn->setDefaultAction( action );
+    if (!btn->icon().isNull())
+        btn->setToolButtonStyle( Qt::ToolButtonIconOnly );
+    btn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
     layout()->addWidget( btn );
 }
 

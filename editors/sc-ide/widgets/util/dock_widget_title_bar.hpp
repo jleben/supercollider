@@ -28,18 +28,6 @@
 
 namespace ScIDE {
 
-class DockWidgetTitleBarButton : public QToolButton
-{
-public:
-    DockWidgetTitleBarButton( QWidget * parent = 0 );
-
-    virtual QSize sizeHint() const;
-
-protected:
-    virtual void enterEvent( QEvent * event );
-    virtual void leaveEvent( QEvent * event );
-};
-
 class DockWidgetTitleBar : public QWidget
 {
     Q_OBJECT
