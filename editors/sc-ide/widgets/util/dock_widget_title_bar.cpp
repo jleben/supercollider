@@ -38,11 +38,6 @@ DockWidgetTitleBar::DockWidgetTitleBar( QDockWidget *widget ):
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
-    QPalette palette( this->palette() );
-    palette.setColor( QPalette::WindowText, Qt::white );
-    palette.setColor( QPalette::Text, Qt::white );
-    setPalette(palette);
-
     QAction *action;
     QMenu *optionsMenu = new QMenu(this);
 
@@ -108,12 +103,17 @@ void DockWidgetTitleBar::paintEvent( QPaintEvent *event )
 {
     QPainter painter(this);
 
-    painter.setBrush( QColor(85,85,85) );
-    painter.setPen( QColor(50,50,50) );
-    painter.drawRect( rect().adjusted(0,-1,0,-1) );
+    QRect r = rect();
 
-    painter.setPen( QColor(110,110,110) );
-    painter.drawLine( 0, 0, rect().right(), 0 );
+    painter.setBrush( palette().color(QPalette::Mid) );
+    painter.setPen(Qt::NoPen);
+    painter.drawRect(r);
+
+    painter.setPen( palette().color(QPalette::Shadow) );
+    painter.drawLine( r.bottomLeft(), r.bottomRight() );
+
+    painter.setPen( palette().color(QPalette::Mid).lighter(120) );
+    painter.drawLine( r.topLeft(), r.topRight() );
 }
 
 } // namespace ScIDE

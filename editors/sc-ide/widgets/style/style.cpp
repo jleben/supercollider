@@ -54,8 +54,6 @@ void Style::polish ( QWidget * widget )
     if ( (qobject_cast<QTabBar*>(widget))
          || (qobject_cast<QToolButton*>(widget)) )
     {
-        static QPalette palette( QColor(85,85,85), QColor(85,85,85) );
-        widget->setPalette(palette);
         widget->setAttribute(Qt::WA_Hover, true);
     }
     else
@@ -96,34 +94,29 @@ void Style::drawComplexControl
         QRect r = option->rect;
 
         if (option->state & QStyle::State_On) {
-            painter->setBrush( QColor(60,60,60) );
-            painter->setPen( QColor(40,40,40) );
+            painter->setBrush( option->palette.color(QPalette::Dark) );
+            painter->setPen( option->palette.color(QPalette::Shadow) );
             painter->drawRect( r.adjusted(0,0,-1,-1) );
         }
         else {
             r.adjust(0,0,0,-1);
 
-            QColor fill = option->state & QStyle::State_MouseOver
-                    ? QColor(120,120,120)
-                    : QColor(85,85,85);
+            bool highlight = option->state & QStyle::State_MouseOver;
 
-            QColor edge =  option->state & QStyle::State_MouseOver
-                    ? QColor(140,140,140)
-                    : QColor(110,110,110);
+            if (highlight) {
+                QColor fill = option->palette.color(QPalette::Button);
+                painter->setBrush(fill);
+                painter->setPen(Qt::NoPen);
+                painter->drawRect(r);
+            }
 
-            painter->setBrush(fill);
-            painter->setPen(Qt::NoPen);
-            painter->drawRect(r);
-
-            painter->setPen(edge);
-            painter->drawLine( r.topLeft(), r.topRight() );
+            painter->setPen( option->palette.color(QPalette::Shadow) );
 
             if (toolBtn->arrowType() == Qt::LeftArrow) {
-                painter->setPen( QColor(50,50,50) );
                 painter->drawLine( option->rect.topLeft(), option->rect.bottomLeft() );
             }
             else if (toolBtn->arrowType() == Qt::RightArrow) {
-                painter->setPen( QColor(50,50,50) );
+
                 painter->drawLine( option->rect.topRight(), option->rect.bottomRight() );
             }
         }
@@ -198,18 +191,13 @@ void Style::drawControl
         bool highlight = tabOption->state & QStyle::State_Selected
                 || tabOption->state & QStyle::State_MouseOver;
 
-        QColor fill = highlight ? QColor(120,120,120) : QColor(85,85,85);
-
-        QColor edge =  highlight ? QColor(140,140,140) : QColor(110,110,110);
-
-        QRect r = tabOption->rect.adjusted(0,0,0,-1);
-
-        painter->setBrush( fill );
-        painter->setPen( Qt::NoPen );
-        painter->drawRect(r);
-
-        painter->setPen( edge );
-        painter->drawLine( r.topLeft(), r.topRight() );
+        if (highlight) {
+            QColor fill = option->palette.color(QPalette::Button);
+            painter->setBrush(fill);
+            painter->setPen(Qt::NoPen);
+            QRect r = tabOption->rect.adjusted(0,1,0,-1);
+            painter->drawRect(r);
+        }
 
         painter->restore();
 
@@ -226,20 +214,20 @@ void Style::drawControl
 
         QRect textRect = subElementRect( QStyle::SE_TabBarTabText, option, widget );
         painter->drawText( textRect,
-                           Qt::AlignVCenter | Qt::AlignLeft | Qt::TextShowMnemonic,
+                           Qt::AlignCenter | Qt::TextShowMnemonic,
                            tabOption->text );
         return;
     }
     case CE_Splitter:
         painter->save();
         painter->setPen(Qt::NoPen);
-        painter->setBrush(Qt::black);
+        painter->setBrush(option->palette.color(QPalette::Shadow));
         painter->drawRect( option->rect );
         painter->restore();
         return;
     case CE_MenuBarEmptyArea:
         painter->save();
-        painter->setPen(Qt::black);
+        painter->setPen(option->palette.color(QPalette::Shadow));
         painter->drawLine(option->rect.bottomLeft(), option->rect.bottomRight());
         painter->restore();
         return;
@@ -265,7 +253,7 @@ void Style::drawPrimitive
     case PE_IndicatorDockWidgetResizeHandle:
         painter->save();
         painter->setPen(Qt::NoPen);
-        painter->setBrush(Qt::black);
+        painter->setBrush(option->palette.color(QPalette::Shadow));
         painter->drawRect( option->rect );
         painter->restore();
         return;
@@ -318,7 +306,7 @@ QRect Style::subElementRect
             rMargin += tabOption->rightButtonSize.width() + 4;
 
         QRect r = option->rect;
-        r.adjust( lMargin, 0, rMargin, 0 );
+        r.adjust( lMargin, 0, -rMargin, 0 );
         return r;
     }
     default:

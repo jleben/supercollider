@@ -199,12 +199,18 @@ protected:
     virtual void paintEvent( QPaintEvent * event )
     {
         QPainter painter(this);
-        painter.setBrush( QColor(85,85,85) );
-        painter.setPen( QColor(50,50,50) );
-        painter.drawRect( rect().adjusted(-1,-1,0,-1) );
 
-        painter.setPen( QColor(110,110,110) );
-        painter.drawLine( 0, 0, rect().right(), 0 );
+        QRect r = rect();
+
+        painter.setBrush( palette().color(QPalette::Mid) );
+        painter.setPen(Qt::NoPen);
+        painter.drawRect(r);
+
+        painter.setPen( palette().color(QPalette::Shadow) );
+        painter.drawLine( r.bottomLeft(), r.bottomRight() );
+
+        painter.setPen( palette().color(QPalette::Mid).lighter(120) );
+        painter.drawLine( r.topLeft(), r.topRight() );
 
         QTabBar::paintEvent(event);
     }
