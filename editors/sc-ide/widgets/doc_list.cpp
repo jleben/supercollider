@@ -122,12 +122,11 @@ DocumentListWidget::Item *DocumentListWidget::itemFor( QListWidgetItem *litem )
         return 0;
 }
 
-DocumentsDock::DocumentsDock(DocumentManager *manager, QWidget* parent):
-    DockWidget(tr("Documents"), parent),
+DocumentsDocklet::DocumentsDocklet(DocumentManager *manager, QWidget* parent):
+    Docklet(tr("Documents"), parent),
     mDocList(new DocumentListWidget(manager))
 {
     setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
     setWidget(mDocList);
 }
 

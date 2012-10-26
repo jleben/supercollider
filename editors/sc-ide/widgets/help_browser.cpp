@@ -237,13 +237,12 @@ void HelpBrowser::onJsConsoleMsg(const QString &arg1, int arg2, const QString & 
     qWarning() << "* source ID:" << arg3;
 }
 
-HelpBrowserDockable::HelpBrowserDockable( QWidget *parent ):
-    DockWidget("Help browser", parent)
+HelpBrowserDocklet::HelpBrowserDocklet( QWidget *parent ):
+    Docklet("Help browser", parent)
 {
     mHelpBrowser = new HelpBrowser;
 
     setAllowedAreas(Qt::AllDockWidgetAreas);
-    setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
     setWidget(mHelpBrowser);
 
     toolBar()->addWidget( mHelpBrowser->loadProgressIndicator(), 1 );

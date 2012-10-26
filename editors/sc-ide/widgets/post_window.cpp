@@ -246,28 +246,27 @@ void PostWindow::setLineWrap(bool lineWrapOn)
     Main::settings()->setValue( "IDE/postWindow/lineWrap", lineWrapOn );
 }
 
-PostDock::PostDock(QWidget* parent):
-    DockWidget(tr("Post window"), parent)
+PostDocklet::PostDocklet(QWidget* parent):
+    Docklet(tr("Post window"), parent)
 {
     setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
-    setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
 
-    mPostWindow = new PostWindow(this);
+    mPostWindow = new PostWindow;
     setWidget(mPostWindow);
 
     toolBar()->addAction( mPostWindow->mAutoScrollAction );
 
-    connect(this, SIGNAL(topLevelChanged(bool)), this, SLOT(onFloatingChanged(bool)));
+    //connect(this, SIGNAL(topLevelChanged(bool)), this, SLOT(onFloatingChanged(bool)));
 }
 
-void PostDock::onFloatingChanged(bool floating)
+void PostDocklet::onFloatingChanged(bool floating)
 {
     // HACK: After undocking when main window maximized, the dock widget can not be
     // resized anymore. Apparently it has to do something with the fact that the dock
     // widget spans from edge to edge of the screen.
     // The issue is avoided by slightly shrinking the dock widget.
     if (floating)
-        resize(size() - QSize(1,1));
+        dockWidget()->resize(dockWidget()->size() - QSize(1,1));
 }
 
 } // namespace ScIDE

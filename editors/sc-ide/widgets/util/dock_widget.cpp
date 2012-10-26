@@ -18,6 +18,8 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
+#define QT_NO_DEBUG_OUTPUT
+
 #include "dock_widget.hpp"
 
 #include <QWidget>
@@ -36,7 +38,7 @@
 
 namespace ScIDE {
 
-DockWidgetToolBar::DockWidgetToolBar(const QString &title)
+DockletToolBar::DockletToolBar(const QString &title)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
@@ -62,7 +64,7 @@ DockWidgetToolBar::DockWidgetToolBar(const QString &title)
     setLayout(l);
 }
 
-void DockWidgetToolBar::addAction (QAction *action)
+void DockletToolBar::addAction (QAction *action)
 {
     QToolButton *btn = new QToolButton;
     btn->setIconSize( QSize(16,16) );
@@ -74,12 +76,12 @@ void DockWidgetToolBar::addAction (QAction *action)
         layout()->addWidget( btn );
 }
 
-void DockWidgetToolBar::addWidget (QWidget *widget, int stretch)
+void DockletToolBar::addWidget (QWidget *widget, int stretch)
 {
     static_cast<QHBoxLayout*>(layout())->addWidget(widget, stretch);
 }
 
-void DockWidgetToolBar::paintEvent( QPaintEvent *event )
+void DockletToolBar::paintEvent( QPaintEvent *event )
 {
     QPainter painter(this);
 
@@ -107,67 +109,84 @@ static void updateWindowState( QWidget * window, QDockWidget::DockWidgetFeatures
     window->setWindowFlags( flags );
 }
 
-DockWidget::DockWidget( const QString & title, QWidget * parent ):
-    QDockWidget(title, parent),
-    mWidget(0),
-    mWindow(0)
+Docklet::Docklet( const QString & title, QWidget * parent ):
+    QObject(parent),
+    mWindow(0),
+    mWidget(0)
 {
-    mToolBar = new DockWidgetToolBar(title);
-    setTitleBarWidget(mToolBar);
+    mDockWidget = new QDockWidget(title, parent);
+    mDockWidget->installEventFilter(this);
+
+    mToolBar = new DockletToolBar(title);
+    mDockWidget->setTitleBarWidget(mToolBar);
 
     QMenu *optionsMenu = mToolBar->optionsMenu();
     QAction *action;
 
+    QDockWidget::DockWidgetFeatures features = mDockWidget->features();
+
     mFloatAction = action = optionsMenu->addAction(tr("Undock"));
-    action->setEnabled( features() & QDockWidget::DockWidgetFloatable );
+    action->setEnabled( features & QDockWidget::DockWidgetFloatable );
     connect( action, SIGNAL(triggered(bool)), this, SLOT(toggleFloating()) );
 
     mDetachAction = action = optionsMenu->addAction(tr("Detach"));
-    action->setEnabled( features() & QDockWidget::DockWidgetFloatable );
+    action->setEnabled( features & QDockWidget::DockWidgetFloatable );
     connect( action, SIGNAL(triggered(bool)), this, SLOT(toggleDetached()) );
 
     action = optionsMenu->addAction(tr("Close"));
-    action->setEnabled( features() & QDockWidget::DockWidgetClosable );
+    action->setEnabled( features & QDockWidget::DockWidgetClosable );
     connect( action, SIGNAL(triggered(bool)), this, SLOT(close()) );
 
     mVisibilityAction = action = new QAction(title, this);
     action->setCheckable(true);
-    connect( action, SIGNAL(triggered(bool)), this, SLOT(setPresent(bool)) );
+    connect( action, SIGNAL(triggered(bool)), this, SLOT(setVisible(bool)) );
 
-    connect( this, SIGNAL(topLevelChanged(bool)), this, SLOT(onFloatingChanged(bool)) );
-    connect( this, SIGNAL(featuresChanged(QDockWidget::DockWidgetFeatures)),
+    connect( mDockWidget, SIGNAL(topLevelChanged(bool)), this, SLOT(onFloatingChanged(bool)) );
+    connect( mDockWidget, SIGNAL(featuresChanged(QDockWidget::DockWidgetFeatures)),
              this, SLOT(onFeaturesChanged(QDockWidget::DockWidgetFeatures)) );
 }
 
-void DockWidget::toggleFloating()
+void Docklet::toggleFloating()
 {
-    bool undock = !isFloating();
-    if (!undock && isDetached()) {
-        setDetached(false);
+    bool undock = !(isDetached() || mDockWidget->isFloating());
+
+    // WARNING: QDockWidget is broken: it internally caches undocked geometry,
+    // but only when resized, not when moved.
+    // Thus QDockWidget::setFloating may potentially restore wrong geometry,
+    // in turn corrupting also our own mUndockedGeom via event filtering!
+    // So take measures to remedy that:
+
+    QRect undockedGeom = mUndockedGeom;
+
+    setDetached(false);
+
+    mDockWidget->setFloating( undock );
+
+    if (undock) {
+        qDebug() << "set dock geom (toggleFloat):" << undockedGeom << this;
+        mDockWidget->setGeometry( undockedGeom );
     }
-    setFloating( undock );
 }
 
-void DockWidget::toggleDetached()
+void Docklet::toggleDetached()
 {
     setDetached( !isDetached() );
 }
 
-void DockWidget::setDetached( bool detach )
+void Docklet::setDetached( bool detach )
 {
     if (isDetached() == detach)
         return;
 
     Q_ASSERT(!isDetached() || mWindow != NULL);
 
+    QRect undockedGeom = mUndockedGeom;
+
     if(detach) {
-        if (!isFloating())
-            setFloating( true ); // at least for the sake of dock/undock action
+        mDockWidget->hide();
 
-        hide();
-
-        QDockWidget::setWidget(0);
-        QDockWidget::setTitleBarWidget(0);
+        mDockWidget->setWidget(0);
+        mDockWidget->setTitleBarWidget(0);
 
         QVBoxLayout *layout;
 
@@ -177,9 +196,9 @@ void DockWidget::setDetached( bool detach )
             layout->setContentsMargins(0,0,0,0);
             layout->setSpacing(0);
             mWindow->setLayout( layout );
-            mWindow->setWindowTitle( windowTitle() );
+            mWindow->setWindowTitle( mDockWidget->windowTitle() );
             mWindow->installEventFilter(this);
-            updateWindowState( mWindow, features() );
+            updateWindowState( mWindow, mDockWidget->features() );
         }
         else
             layout = qobject_cast<QVBoxLayout*>(mWindow->layout());
@@ -187,53 +206,52 @@ void DockWidget::setDetached( bool detach )
         layout->addWidget(mToolBar);
         layout->addWidget(mWidget);
 
-        if (!mUndockedGeom.isNull())
-            mWindow->setGeometry( mUndockedGeom );
-
         mWidget->show();
         mToolBar->show();
         mWindow->show();
+
+        // NOTE: set geometry after show() or else some geometry modifying events
+        // are postponed!
+        qDebug() << "set win geom (toggleDetached):" << undockedGeom << this;
+        if (!undockedGeom.isNull())
+            mWindow->setGeometry( undockedGeom );
+
+        onFloatingChanged(true);
     }
     else {
         mWindow->hide();
 
-        QDockWidget::setTitleBarWidget(mToolBar);
-        QDockWidget::setWidget(mWidget);
+        mDockWidget->setTitleBarWidget(mToolBar);
+        mDockWidget->setWidget(mWidget);
 
-        if (isFloating() && !mUndockedGeom.isNull())
-            setGeometry( mUndockedGeom );
+        //if (!mDockWidget->isFloating())
+        mDockWidget->setFloating(true);
 
-        show();
+        mDockWidget->show();
+
+        // NOTE: set geometry after show() or else some geometry modifying events
+        // are postponed!
+        qDebug() << "set dock geom (toggleDetached):" << undockedGeom << this;
+        if (!undockedGeom.isNull())
+            mDockWidget->setGeometry( undockedGeom );
     }
 
     mDetachAction->setText( detach ? tr("Attach") : tr("Detach") );
 }
 
-void DockWidget::setPresent( bool present )
+void Docklet::onFloatingChanged( bool floating )
 {
-    if (isDetached())
-        mWindow->setVisible(present);
-    else
-        QDockWidget::setVisible(present);
-}
-
-void DockWidget::close()
-{
-    setPresent(false);
-}
-
-void DockWidget::onFloatingChanged( bool floating )
-{
+    // NOTE: called also when detaching, to update the action
     mFloatAction->setText( floating ? tr("Dock") : tr("Undock") );
 }
 
-void DockWidget::onFeaturesChanged ( QDockWidget::DockWidgetFeatures features )
+void Docklet::onFeaturesChanged ( QDockWidget::DockWidgetFeatures features )
 {
     if( mWindow )
         updateWindowState( mWindow, features );
 }
 
-bool DockWidget::event( QEvent *event )
+bool Docklet::eventFilter( QObject *object, QEvent *event )
 {
     switch(event->type()) {
     case QEvent::Show:
@@ -243,37 +261,21 @@ bool DockWidget::event( QEvent *event )
         mVisibilityAction->setChecked(false);
         break;
     case QEvent::Resize:
-    case QEvent::Move:
-        if(isFloating())
-            mUndockedGeom = geometry();
+    case QEvent::Move: {
+        if (object == mWindow) {
+            mUndockedGeom = mWindow->geometry();
+            qDebug() << "cache window geom" << mUndockedGeom << this;
+        } else if(object == mDockWidget && mDockWidget->isFloating()) {
+            mUndockedGeom = mDockWidget->geometry();
+            qDebug() << "cache dock geom"  << mUndockedGeom << this;
+        }
         break;
+    }
     default:
         break;
     }
 
-    return QDockWidget::event(event);
-}
-
-bool DockWidget::eventFilter( QObject *object, QEvent * event )
-{
-    if (object == mWindow) {
-        switch(event->type()) {
-        case QEvent::Show:
-            mVisibilityAction->setChecked(true);
-            break;
-        case QEvent::Hide:
-            mVisibilityAction->setChecked(false);
-            break;
-        case QEvent::Resize:
-        case QEvent::Move:
-            mUndockedGeom = mWindow->geometry();
-            break;
-        default:
-            break;
-        }
-    }
-
-    return QDockWidget::eventFilter(object, event);
+    return QObject::eventFilter( object, event );
 }
 
 } // namespace ScIDE

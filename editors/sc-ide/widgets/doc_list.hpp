@@ -80,10 +80,10 @@ private:
     QIcon mDocModifiedIcon;
 };
 
-class DocumentsDock : public DockWidget
+class DocumentsDocklet : public Docklet
 {
 public:
-    DocumentsDock(DocumentManager *manager, QWidget* parent = 0);
+    DocumentsDocklet(DocumentManager *manager, QWidget* parent = 0);
 
     DocumentListWidget *list() { return mDocList; }
 

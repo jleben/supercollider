@@ -109,10 +109,10 @@ private:
     QSize mSizeHint;
 };
 
-class HelpBrowserDockable : public DockWidget
+class HelpBrowserDocklet : public Docklet
 {
 public:
-    HelpBrowserDockable( QWidget *parent = 0 );
+    HelpBrowserDocklet( QWidget *parent = 0 );
 
     HelpBrowser *browser() { return mHelpBrowser; }
 

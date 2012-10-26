@@ -29,7 +29,7 @@ namespace ScIDE {
 
 namespace Settings { class Manager; }
 
-class PostDock;
+class PostDocklet;
 
 class PostWindow:
     public QPlainTextEdit
@@ -64,7 +64,7 @@ private slots:
     void setLineWrap(bool on);
 
 private:
-    friend class PostDock;
+    friend class PostDocklet;
 
     void zoomFont(int steps);
     void wheelEvent( QWheelEvent * );
@@ -78,13 +78,14 @@ private:
 };
 
 
-class PostDock:
-    public DockWidget
+class PostDocklet:
+    public Docklet
 {
     Q_OBJECT
 
 public:
-    PostDock(QWidget* parent = 0);
+    PostDocklet(QWidget* parent = 0);
+
 
 private slots:
     void onFloatingChanged(bool floating);

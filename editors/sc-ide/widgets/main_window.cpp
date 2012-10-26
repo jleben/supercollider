@@ -18,6 +18,8 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
+#define QT_NO_DEBUG_OUTPUT
+
 #include "cmd_line.hpp"
 #include "doc_list.hpp"
 #include "documents_dialog.hpp"
@@ -102,19 +104,19 @@ MainWindow::MainWindow(Main * main) :
     mToolBox->hide();
 
     // Docks
-    mDocListDock = new DocumentsDock(main->documentManager(), this);
-    mDocListDock->setObjectName("documents-dock");
-    addDockWidget(Qt::LeftDockWidgetArea, mDocListDock);
-    mDocListDock->hide();
+    mDocumentsDocklet = new DocumentsDocklet(main->documentManager(), this);
+    mDocumentsDocklet->setObjectName("documents-dock");
+    addDockWidget(Qt::LeftDockWidgetArea, mDocumentsDocklet->dockWidget());
+    mDocumentsDocklet->hide();
 
-    mHelpBrowserDockable = new HelpBrowserDockable(this);
-    mHelpBrowserDockable->setObjectName("help-dock");
-    addDockWidget(Qt::RightDockWidgetArea, mHelpBrowserDockable);
+    mHelpBrowserDocklet = new HelpBrowserDocklet(this);
+    mHelpBrowserDocklet->setObjectName("help-dock");
+    addDockWidget(Qt::RightDockWidgetArea, mHelpBrowserDocklet->dockWidget());
     //mHelpBrowserDockable->hide();
 
-    mPostDock = new PostDock(this);
-    mPostDock->setObjectName("post-dock");
-    addDockWidget(Qt::RightDockWidgetArea, mPostDock);
+    mPostDocklet = new PostDocklet(this);
+    mPostDocklet->setObjectName("post-dock");
+    addDockWidget(Qt::RightDockWidgetArea, mPostDocklet->dockWidget());
 
     // Layout
     QVBoxLayout *center_box = new QVBoxLayout;
@@ -141,7 +143,7 @@ MainWindow::MainWindow(Main * main) :
             main->scProcess(), SLOT(evaluateCode(QString,bool)));
     // Interpreter: post output
     connect(main->scProcess(), SIGNAL( scPost(QString) ),
-            mPostDock->mPostWindow, SLOT( post(QString) ) );
+            mPostDocklet->mPostWindow, SLOT( post(QString) ) );
     // Interpreter: monitor running state
     connect(main->scProcess(), SIGNAL( stateChanged(QProcess::ProcessState) ),
             this, SLOT( onInterpreterStateChanged(QProcess::ProcessState) ) );
@@ -150,10 +152,10 @@ MainWindow::MainWindow(Main * main) :
             this, SLOT(showStatusMessage(const QString&)));
 
     // Document list interaction
-    connect(mDocListDock->list(), SIGNAL(clicked(Document*)),
+    connect(mDocumentsDocklet->list(), SIGNAL(clicked(Document*)),
             mEditors, SLOT(setCurrent(Document*)));
     connect(mEditors, SIGNAL(currentDocumentChanged(Document*)),
-            mDocListDock->list(), SLOT(setCurrent(Document*)),
+            mDocumentsDocklet->list(), SLOT(setCurrent(Document*)),
             Qt::QueuedConnection);
 
     // Update actions on document change
@@ -357,13 +359,13 @@ void MainWindow::createActions()
         QIcon::fromTheme("window-clearpostwindow"), tr("Clear Post Window"), this);
     action->setStatusTip(tr("Clear Post Window"));
     action->setShortcut(tr("Ctrl+Shift+C", "Clear Post Window"));
-    connect(action, SIGNAL(triggered()), mPostDock->mPostWindow, SLOT(clear()));
+    connect(action, SIGNAL(triggered()), mPostDocklet->mPostWindow, SLOT(clear()));
     settings->addAction( action, "post-clear", postCategory);
 
     mActions[FocusPostWindow] = action = new QAction( tr("Focus Post Window"), this);
     action->setStatusTip(tr("Focus Post Window"));
     action->setShortcut(tr("Ctrl+L", "Focus Post Window"));
-    connect(action, SIGNAL(triggered()), mPostDock->mPostWindow, SLOT(setFocus()));
+    connect(action, SIGNAL(triggered()), mPostDocklet->mPostWindow, SLOT(setFocus()));
     settings->addAction( action, "post-focus", postCategory);
 
     // Language
@@ -495,9 +497,9 @@ void MainWindow::createMenus()
 
     menu = new QMenu(tr("&View"), this);
     submenu = new QMenu(tr("&Docks"), this);
-    submenu->addAction( mPostDock->toggleViewAction() );
-    submenu->addAction( mDocListDock->toggleViewAction() );
-    submenu->addAction( mHelpBrowserDockable->toggleViewAction() );
+    submenu->addAction( mPostDocklet->toggleViewAction() );
+    submenu->addAction( mDocumentsDocklet->toggleViewAction() );
+    submenu->addAction( mHelpBrowserDocklet->toggleViewAction() );
     menu->addMenu(submenu);
     menu->addSeparator();
     submenu = menu->addMenu(tr("&Tool Panels"));
@@ -565,29 +567,28 @@ void MainWindow::createMenus()
     menuBar()->addMenu(menu);
 }
 
-static void saveDetachedState( DockWidget *dockWidget,  QVariantList & detachedList )
+static void saveDetachedState( Docklet *docklet,  QVariantMap & data )
 {
-    if (dockWidget->isDetached()) {
-        // make sure geometry gets saved:
-        dockWidget->setGeometry(dockWidget->window()->geometry());
-
-        if(!dockWidget->window()->isHidden())
-            detachedList.append( dockWidget->objectName() );
+    if ( docklet->isDetached() && docklet->isVisible() ) {
+        QByteArray geometryData = docklet->window()->saveGeometry().toBase64();
+        data.insert( docklet->objectName(), geometryData );
     }
+    else
+        data.insert( docklet->objectName(), QByteArray() );
 }
 
 template <class T>
 void MainWindow::saveWindowState(T * settings)
 {
-    QVariantList detachedList;
-    saveDetachedState( mPostDock, detachedList );
-    saveDetachedState( mDocListDock, detachedList );
-    saveDetachedState( mHelpBrowserDockable, detachedList );
+    QVariantMap detachedData;
+    saveDetachedState( mPostDocklet, detachedData );
+    saveDetachedState( mDocumentsDocklet, detachedData );
+    saveDetachedState( mHelpBrowserDocklet, detachedData );
 
     settings->beginGroup("mainWindow");
     settings->setValue("geometry", this->saveGeometry().toBase64());
     settings->setValue("state", this->saveState().toBase64());
-    settings->setValue("detached", QVariant::fromValue(detachedList));
+    settings->setValue("detached", QVariant::fromValue(detachedData));
     settings->endGroup();
 }
 
@@ -599,31 +600,32 @@ void MainWindow::saveWindowState()
     settings->endGroup();
 }
 
-static void restoreDetachedState( DockWidget *dockWidget,  const QVariantList & detachedList )
+static void restoreDetachedState( Docklet *docklet,  const QVariantMap & data )
 {
-    bool detach = detachedList.contains( dockWidget->objectName() );
-    dockWidget->setDetached( detach );
-}
-
-static void restoreDetachedGeom( DockWidget *dockWidget,  const QVariantList & detachedList )
-{
-    bool detach = detachedList.contains( dockWidget->objectName() );
-    if (detach)
-        dockWidget->window()->setGeometry( dockWidget->geometry() );
+    QByteArray geomData = data.value( docklet->objectName() ).value<QByteArray>();
+    if (!geomData.isEmpty()) {
+        docklet->setDetached( true );
+        qDebug() << "restore win geom:" << docklet;
+        docklet->window()->restoreGeometry( QByteArray::fromBase64( geomData ) );
+    }
+    else
+        docklet->setDetached( false );
 }
 
 template <class T>
 void MainWindow::restoreWindowState( T * settings )
 {
+    qDebug("------------ restore window state ------------");
+
     settings->beginGroup("mainWindow");
     QVariant varGeom = settings->value("geometry");
     QVariant varState = settings->value("state");
-    QVariant varDetachedList = settings->value("detached");
+    QVariant varDetached = settings->value("detached");
     settings->endGroup();
 
     QByteArray geom = QByteArray::fromBase64( varGeom.value<QByteArray>() );
     QByteArray state = QByteArray::fromBase64( varState.value<QByteArray>() );
-    QVariantList detachedList = varDetachedList.value<QVariantList>();
+    QVariantMap detachedData = varDetached.value<QVariantMap>();
 
     if (!geom.isEmpty()) {
         // Workaround for Qt bug 4397:
@@ -633,16 +635,16 @@ void MainWindow::restoreWindowState( T * settings )
     else
         setWindowState( windowState() & ~Qt::WindowFullScreen | Qt::WindowMaximized );
 
-    restoreDetachedState( mPostDock, detachedList );
-    restoreDetachedState( mDocListDock, detachedList );
-    restoreDetachedState( mHelpBrowserDockable, detachedList );
+    restoreDetachedState( mPostDocklet, detachedData );
+    restoreDetachedState( mDocumentsDocklet, detachedData );
+    restoreDetachedState( mHelpBrowserDocklet, detachedData );
+
+    qDebug("restoring state");
 
     if (!state.isEmpty())
         restoreState(state);
 
-    restoreDetachedGeom( mPostDock, detachedList );
-    restoreDetachedGeom( mDocListDock, detachedList );
-    restoreDetachedGeom( mHelpBrowserDockable, detachedList );
+    qDebug("setting dock area corners");
 
     setCorner( Qt::TopLeftCorner, Qt::LeftDockWidgetArea );
     setCorner( Qt::BottomLeftCorner, Qt::LeftDockWidgetArea );
@@ -650,6 +652,8 @@ void MainWindow::restoreWindowState( T * settings )
     setCorner( Qt::BottomRightCorner, Qt::RightDockWidgetArea );
 
     updateClockWidget(isFullScreen());
+
+    qDebug("------------ END restore window state ------------");
 }
 
 void MainWindow::restoreWindowState()
@@ -1185,14 +1189,14 @@ void MainWindow::showStatusMessage( QString const & string )
 
 void MainWindow::applySettings( Settings::Manager * settings )
 {
-    mPostDock->mPostWindow->applySettings(settings);
-    mHelpBrowserDockable->browser()->applySettings(settings);
+    mPostDocklet->mPostWindow->applySettings(settings);
+    mHelpBrowserDocklet->browser()->applySettings(settings);
     mCmdLine->applySettings(settings);
 }
 
 void MainWindow::storeSettings( Settings::Manager * settings )
 {
-    mPostDock->mPostWindow->storeSettings(settings);
+    mPostDocklet->mPostWindow->storeSettings(settings);
 }
 
 void MainWindow::updateSessionsMenu()
@@ -1333,8 +1337,8 @@ void MainWindow::lookupDocumentationForCursor()
 
 void MainWindow::openHelp()
 {
-    mHelpBrowserDockable->browser()->goHome();
-    mHelpBrowserDockable->show();
+    mHelpBrowserDocklet->browser()->goHome();
+    mHelpBrowserDocklet->show();
 }
 
 void MainWindow::dragEnterEvent( QDragEnterEvent * event )

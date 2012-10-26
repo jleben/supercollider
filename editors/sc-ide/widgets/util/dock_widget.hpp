@@ -28,11 +28,11 @@
 
 namespace ScIDE {
 
-class DockWidgetToolBar : public QWidget
+class DockletToolBar : public QWidget
 {
     Q_OBJECT
 public:
-    DockWidgetToolBar(const QString & title);
+    DockletToolBar(const QString & title);
 
     void addAction (QAction *action);
     void addWidget (QWidget *widget, int stretch = 0 );
@@ -43,50 +43,76 @@ protected:
     QMenu *mOptionsMenu;
 };
 
-class DockWidget : public QDockWidget
+class Docklet : public QObject
 {
     Q_OBJECT
 public:
-    DockWidget( const QString & title, QWidget * parent = 0 );
+    Docklet( const QString & title, QWidget * parent = 0 );
 
-    DockWidgetToolBar *toolBar() { return mToolBar; }
-
-    void setWidget( QWidget *widget ) {
-        mWidget = widget;
-        if (!isDetached())
-            QDockWidget::setWidget(widget);
-    }
-
+    QDockWidget *dockWidget() { return mDockWidget; }
+    QWidget *window() { return mWindow; }
     QWidget *widget () { return mWidget; }
-
+    DockletToolBar *toolBar() { return mToolBar; }
     QAction *toggleViewAction() { return mVisibilityAction; }
 
-    bool isDetached() const { return mToolBar->parent() != this; }
+    bool isDetached() const { return mToolBar->parent() != mDockWidget; }
     void setDetached( bool detached );
-    QWidget *window() { return mWindow; }
+
+    bool isVisible() const
+    {
+        return const_cast<Docklet*>(this)->activeContainer()->isVisible();
+    }
+
+    void setWidget( QWidget *widget )
+    {
+        mWidget = widget;
+        if (!isDetached())
+            mDockWidget->setWidget(widget);
+    }
+
+    void setAllowedAreas ( Qt::DockWidgetAreas areas )
+    {
+        mDockWidget->setAllowedAreas(areas);
+    }
+
+    void setFeatures ( QDockWidget::DockWidgetFeatures features )
+    {
+        mDockWidget->setFeatures(features);
+    }
+
+    void setObjectName( const QString & name )
+    {
+        QObject::setObjectName(name);
+        mDockWidget->setObjectName(name);
+    }
 
 public slots:
     void toggleFloating();
     void toggleDetached();
-    void setPresent( bool present );
-    void close();
+    void setVisible( bool visible ) { activeContainer()->setVisible(visible); }
+    void show() { setVisible(true); }
+    void hide() { setVisible(false); }
+    void close() { hide(); }
+    void raise() { activeContainer()->raise(); }
 
 private slots:
     void onFloatingChanged( bool floating );
     void onFeaturesChanged ( QDockWidget::DockWidgetFeatures features );
 
 protected:
-    virtual bool event( QEvent * );
     virtual bool eventFilter(QObject *object, QEvent * event);
 
 private:
+    QWidget *activeContainer() { return isDetached() ? mWindow : mDockWidget; }
+
+    QDockWidget *mDockWidget;
+    QWidget *mWindow;
+    QWidget *mWidget;
+    DockletToolBar *mToolBar;
+
     QAction *mFloatAction;
     QAction *mDetachAction;
     QAction *mVisibilityAction;
-
-    DockWidgetToolBar *mToolBar;
-    QWidget *mWidget;
-    QWidget *mWindow;
 
     QRect mUndockedGeom;
 };
