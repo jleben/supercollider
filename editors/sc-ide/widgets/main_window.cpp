@@ -565,36 +565,99 @@ void MainWindow::createMenus()
     menuBar()->addMenu(menu);
 }
 
-void MainWindow::saveWindowState()
+static void saveDetachedState( DockWidget *dockWidget,  QVariantList & detachedList )
 {
-    Settings::Manager *settings = Main::settings();
-    settings->beginGroup("IDE/mainWindow");
+    if (dockWidget->isDetached()) {
+        // make sure geometry gets saved:
+        dockWidget->setGeometry(dockWidget->window()->geometry());
+
+        if(!dockWidget->window()->isHidden())
+            detachedList.append( dockWidget->objectName() );
+    }
+}
+
+template <class T>
+void MainWindow::saveWindowState(T * settings)
+{
+    QVariantList detachedList;
+    saveDetachedState( mPostDock, detachedList );
+    saveDetachedState( mDocListDock, detachedList );
+    saveDetachedState( mHelpBrowserDockable, detachedList );
+
+    settings->beginGroup("mainWindow");
     settings->setValue("geometry", this->saveGeometry().toBase64());
     settings->setValue("state", this->saveState().toBase64());
+    settings->setValue("detached", QVariant::fromValue(detachedList));
     settings->endGroup();
 }
 
-void MainWindow::restoreWindowState()
+void MainWindow::saveWindowState()
 {
     Settings::Manager *settings = Main::settings();
-    settings->beginGroup("IDE/mainWindow");
+    settings->beginGroup("IDE");
+    saveWindowState(settings);
+    settings->endGroup();
+}
 
-    QByteArray geom = QByteArray::fromBase64( settings->value("geometry").value<QByteArray>() );
-    if (!geom.isEmpty())
+static void restoreDetachedState( DockWidget *dockWidget,  const QVariantList & detachedList )
+{
+    bool detach = detachedList.contains( dockWidget->objectName() );
+    dockWidget->setDetached( detach );
+}
+
+static void restoreDetachedGeom( DockWidget *dockWidget,  const QVariantList & detachedList )
+{
+    bool detach = detachedList.contains( dockWidget->objectName() );
+    if (detach)
+        dockWidget->window()->setGeometry( dockWidget->geometry() );
+}
+
+template <class T>
+void MainWindow::restoreWindowState( T * settings )
+{
+    settings->beginGroup("mainWindow");
+    QVariant varGeom = settings->value("geometry");
+    QVariant varState = settings->value("state");
+    QVariant varDetachedList = settings->value("detached");
+    settings->endGroup();
+
+    QByteArray geom = QByteArray::fromBase64( varGeom.value<QByteArray>() );
+    QByteArray state = QByteArray::fromBase64( varState.value<QByteArray>() );
+    QVariantList detachedList = varDetachedList.value<QVariantList>();
+
+    if (!geom.isEmpty()) {
+        // Workaround for Qt bug 4397:
+        setWindowState(Qt::WindowNoState);
         restoreGeometry(geom);
+    }
     else
         setWindowState( windowState() & ~Qt::WindowFullScreen | Qt::WindowMaximized );
 
-    QByteArray state = QByteArray::fromBase64( settings->value("state").value<QByteArray>() );
+    restoreDetachedState( mPostDock, detachedList );
+    restoreDetachedState( mDocListDock, detachedList );
+    restoreDetachedState( mHelpBrowserDockable, detachedList );
+
     if (!state.isEmpty())
         restoreState(state);
 
-    settings->endGroup();
+    restoreDetachedGeom( mPostDock, detachedList );
+    restoreDetachedGeom( mDocListDock, detachedList );
+    restoreDetachedGeom( mHelpBrowserDockable, detachedList );
 
     setCorner( Qt::TopLeftCorner, Qt::LeftDockWidgetArea );
     setCorner( Qt::BottomLeftCorner, Qt::LeftDockWidgetArea );
     setCorner( Qt::TopRightCorner, Qt::RightDockWidgetArea );
     setCorner( Qt::BottomRightCorner, Qt::RightDockWidgetArea );
+
+    updateClockWidget(isFullScreen());
+}
+
+void MainWindow::restoreWindowState()
+{
+    Settings::Manager *settings = Main::settings();
+    settings->beginGroup("IDE");
+    restoreWindowState(settings);
+    settings->endGroup();
 }
 
 void MainWindow::focusCodeEditor()
@@ -630,39 +693,17 @@ void MainWindow::onOpenSessionAction( QAction * action )
 
 void MainWindow::switchSession( Session *session )
 {
-    if (session) {
-        session->beginGroup("mainWindow");
-        QByteArray geom = QByteArray::fromBase64( session->value("geometry").value<QByteArray>() );
-        QByteArray state = QByteArray::fromBase64( session->value("state").value<QByteArray>() );
-        session->endGroup();
-
-        // Workaround for Qt bug 4397:
-        setWindowState(Qt::WindowNoState);
-
-        if (!geom.isEmpty())
-            restoreGeometry(geom);
-        if (!state.isEmpty())
-            restoreState(state);
-
-        updateClockWidget(isFullScreen());
-    }
-
-    mEditors->switchSession(session);
+    if (session)
+        restoreWindowState(session);
 
     updateWindowTitle();
 
-    setCorner( Qt::TopLeftCorner, Qt::LeftDockWidgetArea );
-    setCorner( Qt::BottomLeftCorner, Qt::LeftDockWidgetArea );
-    setCorner( Qt::TopRightCorner, Qt::RightDockWidgetArea );
-    setCorner( Qt::BottomRightCorner, Qt::RightDockWidgetArea );
+    mEditors->switchSession(session);
 }
 
 void MainWindow::saveSession( Session *session )
 {
-    session->beginGroup("mainWindow");
-    session->setValue("geometry", this->saveGeometry().toBase64());
-    session->setValue("state", this->saveState().toBase64());
-    session->endGroup();
+    saveWindowState(session);
 
     mEditors->saveSession(session);
 }

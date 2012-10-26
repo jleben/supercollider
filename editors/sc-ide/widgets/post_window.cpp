@@ -21,7 +21,6 @@
 #include "main_window.hpp"
 #include "post_window.hpp"
 #include "util/gui_utilities.hpp"
-#include "util/dock_widget_title_bar.hpp"
 #include "../core/main.hpp"
 #include "../core/settings/manager.hpp"
 
@@ -248,7 +247,7 @@ void PostWindow::setLineWrap(bool lineWrapOn)
 }
 
 PostDock::PostDock(QWidget* parent):
-    QDockWidget(tr("Post window"), parent)
+    DockWidget(tr("Post window"), parent)
 {
     setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
     setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
@@ -256,9 +255,7 @@ PostDock::PostDock(QWidget* parent):
     mPostWindow = new PostWindow(this);
     setWidget(mPostWindow);
 
-    DockWidgetTitleBar *titleBar = new DockWidgetTitleBar(this);
-    titleBar->addAction( mPostWindow->mAutoScrollAction );
-    setTitleBarWidget(titleBar);
+    toolBar()->addAction( mPostWindow->mAutoScrollAction );
 
     connect(this, SIGNAL(topLevelChanged(bool)), this, SLOT(onFloatingChanged(bool)));
 }

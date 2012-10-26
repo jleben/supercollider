@@ -185,6 +185,8 @@ protected:
 private:
     void createActions();
     void createMenus();
+    template <class T> void saveWindowState(T * settings);
+    template <class T> void restoreWindowState(T * settings);
     void updateSessionsMenu();
     void updateClockWidget( bool isFullScreen );
     void openSession( QString const & sessionName );

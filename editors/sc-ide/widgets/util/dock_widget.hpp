@@ -28,26 +28,67 @@
 
 namespace ScIDE {
 
-class DockWidgetTitleBar : public QWidget
+class DockWidgetToolBar : public QWidget
 {
     Q_OBJECT
-
 public:
-    DockWidgetTitleBar( QDockWidget *widget );
+    DockWidgetToolBar(const QString & title);
 
     void addAction (QAction *action);
     void addWidget (QWidget *widget, int stretch = 0 );
-
-private slots:
-    void toggleFloating();
-    void onFloatingChanged( bool floating );
+    QMenu *optionsMenu () { return mOptionsMenu; }
 
 protected:
     virtual void paintEvent( QPaintEvent *event );
+    QMenu *mOptionsMenu;
+};
+
+class DockWidget : public QDockWidget
+{
+    Q_OBJECT
+public:
+    DockWidget( const QString & title, QWidget * parent = 0 );
+
+    DockWidgetToolBar *toolBar() { return mToolBar; }
+
+    void setWidget( QWidget *widget ) {
+        mWidget = widget;
+        if (!isDetached())
+            QDockWidget::setWidget(widget);
+    }
+
+    QWidget *widget () { return mWidget; }
+
+    QAction *toggleViewAction() { return mVisibilityAction; }
+
+    bool isDetached() const { return mToolBar->parent() != this; }
+    void setDetached( bool detached );
+    QWidget *window() { return mWindow; }
+
+public slots:
+    void toggleFloating();
+    void toggleDetached();
+    void setPresent( bool present );
+    void close();
+
+private slots:
+    void onFloatingChanged( bool floating );
+    void onFeaturesChanged ( QDockWidget::DockWidgetFeatures features );
+
+protected:
+    virtual bool event( QEvent * );
+    virtual bool eventFilter(QObject *object, QEvent * event);
 
 private:
-    QDockWidget *mDockWidget;
-    QAction *mDockAction;
+    QAction *mFloatAction;
+    QAction *mDetachAction;
+    QAction *mVisibilityAction;
+
+    DockWidgetToolBar *mToolBar;
+    QWidget *mWidget;
+    QWidget *mWindow;
+
+    QRect mUndockedGeom;
 };
 
 } // namespace ScIDE

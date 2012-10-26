@@ -21,8 +21,8 @@
 #ifndef SCIDE_WIDGETS_POST_WINDOW_HPP_INCLUDED
 #define SCIDE_WIDGETS_POST_WINDOW_HPP_INCLUDED
 
+#include "util/dock_widget.hpp"
 #include <QAction>
-#include <QDockWidget>
 #include <QPlainTextEdit>
 
 namespace ScIDE {
@@ -79,7 +79,7 @@ private:
 
 
 class PostDock:
-    public QDockWidget
+    public DockWidget
 {
     Q_OBJECT
 

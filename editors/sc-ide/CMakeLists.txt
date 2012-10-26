@@ -52,7 +52,7 @@ set ( ide_moc_hdr
     widgets/util/key_sequence_edit.hpp
     widgets/util/popup_widget.hpp
     widgets/util/color_widget.hpp
-    widgets/util/dock_widget_title_bar.hpp
+    widgets/util/dock_widget.hpp
 
     ${CMAKE_SOURCE_DIR}/QtCollider/widgets/web_page.hpp
 )
@@ -94,7 +94,7 @@ set ( ide_src
     widgets/settings/shortcuts_page.cpp
     widgets/util/text_format_list_widget.cpp
     widgets/util/popup_widget.cpp
-    widgets/util/dock_widget_title_bar.cpp
+    widgets/util/dock_widget.cpp
     widgets/style/style.cpp
 
     ${CMAKE_SOURCE_DIR}/QtCollider/widgets/web_page.cpp

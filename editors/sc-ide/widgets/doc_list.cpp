@@ -19,7 +19,6 @@
 */
 
 #include "doc_list.hpp"
-#include "util/dock_widget_title_bar.hpp"
 #include "../core/doc_manager.hpp"
 
 #include <QApplication>
@@ -124,15 +123,12 @@ DocumentListWidget::Item *DocumentListWidget::itemFor( QListWidgetItem *litem )
 }
 
 DocumentsDock::DocumentsDock(DocumentManager *manager, QWidget* parent):
-    QDockWidget(tr("Documents"), parent),
+    DockWidget(tr("Documents"), parent),
     mDocList(new DocumentListWidget(manager))
 {
     setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
     setWidget(mDocList);
-
-    DockWidgetTitleBar *titleBar = new DockWidgetTitleBar(this);
-    setTitleBarWidget(titleBar);
 }
 
 } // namespace ScIDE

@@ -21,8 +21,9 @@
 #ifndef SCIDE_WIDGETS_HELP_BROWSER_HPP_INCLUDED
 #define SCIDE_WIDGETS_HELP_BROWSER_HPP_INCLUDED
 
+#include "util/dock_widget.hpp"
+
 #include <QWebView>
-#include <QDockWidget>
 #include <QShortcut>
 #include <QLabel>
 #include <QBasicTimer>
@@ -108,7 +109,7 @@ private:
     QSize mSizeHint;
 };
 
-class HelpBrowserDockable : public QDockWidget
+class HelpBrowserDockable : public DockWidget
 {
 public:
     HelpBrowserDockable( QWidget *parent = 0 );

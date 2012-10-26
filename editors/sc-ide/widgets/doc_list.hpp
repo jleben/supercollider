@@ -21,10 +21,10 @@
 #ifndef SCIDE_WIDGETS_DOC_LIST_HPP_INCLUDED
 #define SCIDE_WIDGETS_DOC_LIST_HPP_INCLUDED
 
+#include "util/dock_widget.hpp"
 #include "../core/doc_manager.hpp"
 
 #include <QListWidget>
-#include <QDockWidget>
 #include <QSignalMapper>
 
 namespace ScIDE {
@@ -80,7 +80,7 @@ private:
     QIcon mDocModifiedIcon;
 };
 
-class DocumentsDock : public QDockWidget
+class DocumentsDock : public DockWidget
 {
 public:
     DocumentsDock(DocumentManager *manager, QWidget* parent = 0);

@@ -22,7 +22,6 @@
 
 #include "help_browser.hpp"
 #include "main_window.hpp"
-#include "util/dock_widget_title_bar.hpp"
 #include "../core/sc_process.hpp"
 #include "../core/main.hpp"
 #include "QtCollider/widgets/web_page.hpp"
@@ -239,7 +238,7 @@ void HelpBrowser::onJsConsoleMsg(const QString &arg1, int arg2, const QString & 
 }
 
 HelpBrowserDockable::HelpBrowserDockable( QWidget *parent ):
-    QDockWidget("Help browser", parent)
+    DockWidget("Help browser", parent)
 {
     mHelpBrowser = new HelpBrowser;
 
@@ -247,12 +246,10 @@ HelpBrowserDockable::HelpBrowserDockable( QWidget *parent ):
     setFeatures(DockWidgetFloatable | DockWidgetMovable | DockWidgetClosable);
     setWidget(mHelpBrowser);
 
-    DockWidgetTitleBar *titleBar = new DockWidgetTitleBar(this);
-    titleBar->addWidget( mHelpBrowser->loadProgressIndicator(), 1 );
+    toolBar()->addWidget( mHelpBrowser->loadProgressIndicator(), 1 );
     QList<QAction*> actions = mHelpBrowser->actions();
     foreach(QAction *action, actions)
-        titleBar->addAction(action);
-    setTitleBarWidget(titleBar);
+        toolBar()->addAction(action);
 
     connect( mHelpBrowser, SIGNAL(urlChanged()), this, SLOT(show()) );
 }
