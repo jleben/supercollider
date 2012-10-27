@@ -125,7 +125,7 @@ Docklet::Docklet( const QString & title, QWidget * parent ):
 
     QDockWidget::DockWidgetFeatures features = mDockWidget->features();
 
-    mFloatAction = action = optionsMenu->addAction(tr("Undock"));
+    mDockAction = action = optionsMenu->addAction(tr("Undock"));
     action->setEnabled( features & QDockWidget::DockWidgetFloatable );
     connect( action, SIGNAL(triggered(bool)), this, SLOT(toggleFloating()) );
 
@@ -141,7 +141,7 @@ Docklet::Docklet( const QString & title, QWidget * parent ):
     action->setCheckable(true);
     connect( action, SIGNAL(triggered(bool)), this, SLOT(setVisible(bool)) );
 
-    connect( mDockWidget, SIGNAL(topLevelChanged(bool)), this, SLOT(onFloatingChanged(bool)) );
+    connect( mDockWidget, SIGNAL(topLevelChanged(bool)), this, SLOT(updateDockAction()) );
     connect( mDockWidget, SIGNAL(featuresChanged(QDockWidget::DockWidgetFeatures)),
              this, SLOT(onFeaturesChanged(QDockWidget::DockWidgetFeatures)) );
 }
@@ -158,14 +158,21 @@ void Docklet::toggleFloating()
 
     QRect undockedGeom = mUndockedGeom;
 
-    setDetached(false);
+    QWidget *container = currentContainer();
+    if (container != mDockWidget) {
+        container->hide();
+        setCurrentContainer(DockableContainer);
+    }
 
     mDockWidget->setFloating( undock );
+    mDockWidget->show();
 
     if (undock) {
-        qDebug() << "set dock geom (toggleFloat):" << undockedGeom << this;
+        qDebug() << "dock: set geom (toggleFloating):" << undockedGeom << this;
         mDockWidget->setGeometry( undockedGeom );
     }
+
+    updateDockAction();
 }
 
 void Docklet::toggleDetached()
@@ -182,9 +189,34 @@ void Docklet::setDetached( bool detach )
 
     QRect undockedGeom = mUndockedGeom;
 
-    if(detach) {
-        mDockWidget->hide();
+    currentContainer()->hide();
 
+    setCurrentContainer( detach ? WindowContainer : DockableContainer );
+
+    if (!detach)
+        mDockWidget->setFloating(true);
+
+    QWidget *container = currentContainer();
+
+    container->show();
+
+    // NOTE: set geometry after show() or else some geometry modifying events
+    // are postponed!
+    qDebug() << (detach ? "win:" : "dock:") <<  "set geom (setDetached):" << undockedGeom << this;
+    if (!undockedGeom.isNull())
+        container->setGeometry( undockedGeom );
+
+    updateDockAction();
+}
+
+void Docklet::setCurrentContainer(ContainerType containerType )
+{
+    switch(containerType) {
+    case DockableContainer:
+        mDockWidget->setTitleBarWidget(mToolBar);
+        mDockWidget->setWidget(mWidget);
+        break;
+    case WindowContainer:
         mDockWidget->setWidget(0);
         mDockWidget->setTitleBarWidget(0);
 
@@ -208,41 +240,17 @@ void Docklet::setDetached( bool detach )
 
         mWidget->show();
         mToolBar->show();
-        mWindow->show();
 
-        // NOTE: set geometry after show() or else some geometry modifying events
-        // are postponed!
-        qDebug() << "set win geom (toggleDetached):" << undockedGeom << this;
-        if (!undockedGeom.isNull())
-            mWindow->setGeometry( undockedGeom );
-
-        onFloatingChanged(true);
-    }
-    else {
-        mWindow->hide();
-
-        mDockWidget->setTitleBarWidget(mToolBar);
-        mDockWidget->setWidget(mWidget);
-
-        //if (!mDockWidget->isFloating())
-        mDockWidget->setFloating(true);
-
-        mDockWidget->show();
-
-        // NOTE: set geometry after show() or else some geometry modifying events
-        // are postponed!
-        qDebug() << "set dock geom (toggleDetached):" << undockedGeom << this;
-        if (!undockedGeom.isNull())
-            mDockWidget->setGeometry( undockedGeom );
+        break;
     }
 
-    mDetachAction->setText( detach ? tr("Attach") : tr("Detach") );
+    mDetachAction->setText( containerType == WindowContainer ? tr("Attach") : tr("Detach") );
 }
 
-void Docklet::onFloatingChanged( bool floating )
+void Docklet::updateDockAction()
 {
-    // NOTE: called also when detaching, to update the action
-    mFloatAction->setText( floating ? tr("Dock") : tr("Undock") );
+    bool docked = currentContainer() == mDockWidget && !mDockWidget->isFloating();
+    mDockAction->setText( docked ? tr("Undock") : tr("Dock") );
 }
 
 void Docklet::onFeaturesChanged ( QDockWidget::DockWidgetFeatures features )

@@ -55,12 +55,16 @@ public:
     DockletToolBar *toolBar() { return mToolBar; }
     QAction *toggleViewAction() { return mVisibilityAction; }
 
-    bool isDetached() const { return mToolBar->parent() != mDockWidget; }
+    bool isDetached() const
+    {
+        return const_cast<Docklet*>(this)->currentContainer() != mDockWidget;
+    }
+
     void setDetached( bool detached );
 
     bool isVisible() const
     {
-        return const_cast<Docklet*>(this)->activeContainer()->isVisible();
+        return const_cast<Docklet*>(this)->currentContainer()->isVisible();
     }
 
     void setWidget( QWidget *widget )
@@ -89,28 +93,35 @@ public:
 public slots:
     void toggleFloating();
     void toggleDetached();
-    void setVisible( bool visible ) { activeContainer()->setVisible(visible); }
+    void setVisible( bool visible ) { currentContainer()->setVisible(visible); }
     void show() { setVisible(true); }
     void hide() { setVisible(false); }
     void close() { hide(); }
-    void raise() { activeContainer()->raise(); }
+    void raise() { currentContainer()->raise(); }
 
 private slots:
-    void onFloatingChanged( bool floating );
     void onFeaturesChanged ( QDockWidget::DockWidgetFeatures features );
+    void updateDockAction();
 
 protected:
     virtual bool eventFilter(QObject *object, QEvent * event);
 
 private:
-    QWidget *activeContainer() { return isDetached() ? mWindow : mDockWidget; }
+    enum ContainerType {
+        DockableContainer,
+        WindowContainer
+    };
+
+    QWidget *currentContainer() { return mToolBar->parentWidget(); }
+
+    void setCurrentContainer( ContainerType );
 
     QDockWidget *mDockWidget;
     QWidget *mWindow;
     QWidget *mWidget;
     DockletToolBar *mToolBar;
 
-    QAction *mFloatAction;
+    QAction *mDockAction;
     QAction *mDetachAction;
     QAction *mVisibilityAction;
 
