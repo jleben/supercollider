@@ -228,6 +228,7 @@ MultiEditor::MultiEditor( Main *main, QWidget * parent ) :
     mTabs->setMovable(true);
     mTabs->setUsesScrollButtons(true);
     mTabs->setDrawBase(true);
+    mTabs->setElideMode(Qt::ElideNone);
 
     CodeEditorBox *defaultBox = newBox();
 
