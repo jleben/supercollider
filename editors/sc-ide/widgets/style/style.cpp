@@ -99,25 +99,26 @@ void Style::drawComplexControl
             painter->drawRect( r.adjusted(0,0,-1,-1) );
         }
         else {
-            r.adjust(0,0,0,-1);
-
             bool highlight = option->state & QStyle::State_MouseOver;
 
             if (highlight) {
                 QColor fill = option->palette.color(QPalette::Button);
                 painter->setBrush(fill);
                 painter->setPen(Qt::NoPen);
-                painter->drawRect(r);
+                painter->drawRect(r.adjusted(0,0,0,-1));
             }
 
-            painter->setPen( option->palette.color(QPalette::Shadow) );
-
-            if (toolBtn->arrowType() == Qt::LeftArrow) {
-                painter->drawLine( option->rect.topLeft(), option->rect.bottomLeft() );
-            }
-            else if (toolBtn->arrowType() == Qt::RightArrow) {
-
-                painter->drawLine( option->rect.topRight(), option->rect.bottomRight() );
+            if (qobject_cast<QTabBar*>(toolBtn->parent())) {
+                if (!highlight) {
+                    QColor fill = option->palette.color(QPalette::Mid);
+                    painter->setBrush(fill);
+                    painter->setPen(Qt::NoPen);
+                    painter->drawRect(r.adjusted(0,1,0,-1));
+                }
+                if (toolBtn->arrowType() == Qt::LeftArrow) {
+                    painter->setPen( option->palette.color(QPalette::Shadow) );
+                    painter->drawLine( option->rect.topLeft(), option->rect.bottomLeft() );
+                }
             }
         }
 
