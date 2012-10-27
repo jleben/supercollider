@@ -213,6 +213,7 @@ void Style::drawControl
         }
 
         QRect textRect = subElementRect( QStyle::SE_TabBarTabText, option, widget );
+
         painter->drawText( textRect,
                            Qt::AlignCenter | Qt::TextShowMnemonic,
                            tabOption->text );
@@ -379,6 +380,10 @@ int Style::styleHint
     }
 
     switch(hint) {
+    case SH_TabBar_PreferNoArrows:
+        return 0;
+    case SH_TabBar_ElideMode:
+        return Qt::ElideNone;
     default:
         break;
     }
