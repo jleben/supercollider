@@ -113,7 +113,7 @@ void Style::drawComplexControl
                     QColor fill = option->palette.color(QPalette::Mid);
                     painter->setBrush(fill);
                     painter->setPen(Qt::NoPen);
-                    painter->drawRect(r.adjusted(0,1,0,-1));
+                    painter->drawRect(r.adjusted(0,0,0,-1));
                 }
                 if (toolBtn->arrowType() == Qt::LeftArrow) {
                     painter->setPen( option->palette.color(QPalette::Shadow) );
@@ -187,18 +187,39 @@ void Style::drawControl
     case QStyle::CE_TabBarTab: {
         const QStyleOptionTabV3 *tabOption = static_cast<const QStyleOptionTabV3*>(option);
 
-        painter->save();;
+        painter->save();
+
+        painter->setRenderHint( QPainter::Antialiasing, true );
 
         bool highlight = tabOption->state & QStyle::State_Selected
                 || tabOption->state & QStyle::State_MouseOver;
 
-        if (highlight) {
-            QColor fill = option->palette.color(QPalette::Button);
-            painter->setBrush(fill);
-            painter->setPen(Qt::NoPen);
-            QRect r = tabOption->rect.adjusted(0,1,0,-1);
-            painter->drawRect(r);
+        QRectF r = tabOption->rect;
+
+        switch (tabOption->shape) {
+        case QTabBar::RoundedNorth:
+        case QTabBar::TriangularNorth:
+            r.adjust(0.5, 0.5, -0.5, 4);
+            painter->setClipRect( tabOption->rect.adjusted(0,0,0,-1) );
+            break;
+        case QTabBar::RoundedSouth:
+        case QTabBar::TriangularSouth:
+            r.adjust(0.5, -4, -0.5, -0.5);
+            painter->setClipRect( tabOption->rect.adjusted(0,1,0,0) );
+            break;
+        default:
+            qWarning("ScIDE::Style: tab shape not supported");
+            break;
         }
+
+        QColor fill = option->palette.color(QPalette::Button);
+        QColor edge = option->palette.color(QPalette::Dark);
+        if (highlight)
+            painter->setBrush(fill);
+        else
+            painter->setBrush(Qt::NoBrush);
+        painter->setPen(edge);
+        painter->drawRoundedRect(r, 4, 4);
 
         painter->restore();
 
@@ -227,12 +248,6 @@ void Style::drawControl
         painter->drawRect( option->rect );
         painter->restore();
         return;
-    case CE_MenuBarEmptyArea:
-        painter->save();
-        painter->setPen(option->palette.color(QPalette::Shadow));
-        painter->drawLine(option->rect.bottomLeft(), option->rect.bottomRight());
-        painter->restore();
-        return;
     default:
         break;
     }
@@ -250,8 +265,28 @@ void Style::drawPrimitive
 
     switch (element) {
     case QStyle::PE_IndicatorTabTear:
-    case QStyle::PE_FrameTabBarBase:
         return;
+    case QStyle::PE_FrameTabBarBase: {
+        const QTabBar *tabBar = qobject_cast<const QTabBar*>(widget);
+
+        const QStyleOptionTabBarBase *tabBarBaseOption =
+                static_cast<const QStyleOptionTabBarBase*>(option);
+
+        painter->save();
+
+        painter->setPen(Qt::NoPen);
+
+        if (tabBar) {
+            painter->setBrush( option->palette.color(QPalette::Mid) );
+            painter->drawRect( tabBar->rect() );
+        }
+
+        painter->setBrush( option->palette.color(QPalette::Shadow) );
+        painter->drawRect( option->rect );
+
+        painter->restore();
+        return;
+    }
     case PE_IndicatorDockWidgetResizeHandle:
         painter->save();
         painter->setPen(Qt::NoPen);
@@ -259,13 +294,6 @@ void Style::drawPrimitive
         painter->drawRect( option->rect );
         painter->restore();
         return;
-    /*case PE_PanelMenuBar:
-        QProxyStyle::drawPrimitive(element, option, painter, widget);
-        painter->save();
-        painter->setPen(Qt::black);
-        painter->drawLine(option->rect.bottomLeft(), option->rect.bottomRight());
-        painter->restore();
-        return;*/
     default:
         QProxyStyle::drawPrimitive(element, option, painter, widget);
     }
@@ -326,6 +354,7 @@ QSize Style::sizeFromContents
 
     switch(type) {
     case QStyle::CT_TabBarTab:
+        return contentsSize;//+ QSize(10, 10);
     case QStyle::CT_ToolButton:
         return contentsSize + QSize(10, 10);
     default:
@@ -347,10 +376,15 @@ int	Style::pixelMetric
     case QStyle::PM_SplitterWidth:
         return 1;
     case QStyle::PM_TabBarBaseHeight:
-    case QStyle::PM_TabBarTabHSpace:
-    case QStyle::PM_TabBarTabVSpace:
+        return 0;
+    case QStyle::PM_TabBarBaseOverlap:
+        return 1;
     case QStyle::PM_TabBarTabShiftHorizontal:
     case QStyle::PM_TabBarTabShiftVertical:
+        return 0;
+    case QStyle::PM_TabBarTabHSpace:
+    case QStyle::PM_TabBarTabVSpace:
+        return 10;
     case QStyle::PM_TabBarTabOverlap:
         return 0;
     case QStyle::PM_TabBarIconSize:
@@ -361,8 +395,6 @@ int	Style::pixelMetric
     case PM_TabBarScrollButtonWidth:
         return 24;
     case PM_TabBar_ScrollButtonOverlap:
-        return 1;
-    case QStyle::PM_MenuBarVMargin:
         return 1;
     case PM_MenuButtonIndicator:
         return 0;

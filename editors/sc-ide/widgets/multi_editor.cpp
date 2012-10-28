@@ -193,36 +193,13 @@ private:
     QStandardItemModel *mModel;
 };
 
-class DocTabBar : public QTabBar
-{
-protected:
-    virtual void paintEvent( QPaintEvent * event )
-    {
-        QPainter painter(this);
-
-        QRect r = rect();
-
-        painter.setBrush( palette().color(QPalette::Mid) );
-        painter.setPen(Qt::NoPen);
-        painter.drawRect(r);
-
-        painter.setPen( palette().color(QPalette::Shadow) );
-        painter.drawLine( r.bottomLeft(), r.bottomRight() );
-
-        painter.setPen( palette().color(QPalette::Mid).lighter(120) );
-        painter.drawLine( r.topLeft(), r.topRight() );
-
-        QTabBar::paintEvent(event);
-    }
-};
-
 MultiEditor::MultiEditor( Main *main, QWidget * parent ) :
     QWidget(parent),
     mEditorSigMux(new SignalMultiplexer(this)),
     mBoxSigMux(new SignalMultiplexer(this)),
     mDocModifiedIcon( QApplication::style()->standardIcon(QStyle::SP_DialogSaveButton) )
 {
-    mTabs = new DocTabBar;
+    mTabs = new QTabBar;
     mTabs->setDocumentMode(true);
     mTabs->setTabsClosable(true);
     mTabs->setMovable(true);

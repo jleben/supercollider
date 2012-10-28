@@ -94,8 +94,8 @@ void DockletToolBar::paintEvent( QPaintEvent *event )
     painter.setPen( palette().color(QPalette::Shadow) );
     painter.drawLine( r.bottomLeft(), r.bottomRight() );
 
-    painter.setPen( palette().color(QPalette::Mid).lighter(120) );
-    painter.drawLine( r.topLeft(), r.topRight() );
+    //painter.setPen( palette().color(QPalette::Mid).lighter(120) );
+    //painter.drawLine( r.topLeft(), r.topRight() );
 }
 
 
