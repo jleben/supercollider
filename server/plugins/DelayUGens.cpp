@@ -5053,21 +5053,37 @@ void ScopeOut_Dtor(ScopeOut *unit)
 
 struct ScopeOut2 : public Unit
 {
+	uint32 m_buffer_idx;
 	ScopeBufferHnd m_buffer;
-	float **m_inBuffers;
-	int m_maxPeriod;
 	uint32 m_phase;
 };
 
+static void ScopeOut2_idle(ScopeOut2 *unit, int inNumSamples)
+{
+
+}
 
 void ScopeOut2_next(ScopeOut2 *unit, int inNumSamples)
 {
-	if( !unit->m_buffer ) return;
+	bool ok = (*ft->fGetScopeBuffer)(unit->mWorld, unit->m_buffer_idx, unit->m_buffer);
+	if (!ok) {
+		Print("ScopeOut2: could not get scope buffer %i\n", unit->m_buffer_idx);
+		SETCALC(ScopeOut2_idle);
+		return;
+	}
 
-	const int inputOffset = 3;
+	const int inputOffset = 2;
 	int numChannels = unit->mNumInputs - inputOffset;
 
-	uint32 period = (uint32)ZIN0(2);
+	if (unit->m_buffer.channels != numChannels) {
+		Print("ScopeOut2: buffer channel count (%i) does not match input channel count (%i)\n",
+			  unit->m_buffer.channels,
+			  numChannels);
+		SETCALC(ScopeOut2_idle);
+		return;
+	}
+
+	uint32 period = (uint32)ZIN0(1);
 	uint32 framepos = unit->m_phase;
 
 	period = std::max((uint32)inNumSamples, std::min(unit->m_buffer.maxFrames, period));
@@ -5108,30 +5124,36 @@ void ScopeOut2_next(ScopeOut2 *unit, int inNumSamples)
 
 void ScopeOut2_Ctor(ScopeOut2 *unit)
 {
-	uint32 numChannels = unit->mNumInputs - 3;
-	uint32 scopeNum = (uint32)ZIN0(0);
-	uint32 maxFrames = (uint32)ZIN0(1);
-
-	bool ok = (*ft->fGetScopeBuffer)(unit->mWorld, scopeNum, numChannels, maxFrames, unit->m_buffer);
-
-	if( !ok ) {
-		if( unit->mWorld->mVerbosity > -1 && !unit->mDone)
-			Print("ScopeOut2: Requested scope buffer unavailable! (index: %d, channels: %d, size: %d)\n",
-				  scopeNum, numChannels, maxFrames);
-	}
-	else {
-		unit->m_phase = 0;
-	}
+	unit->m_buffer_idx = (uint32)ZIN0(0);
+	unit->m_phase = 0;
 
 	SETCALC(ScopeOut2_next);
 }
 
 void ScopeOut2_Dtor(ScopeOut2 *unit)
 {
-	if( unit->m_buffer )
-		(*ft->fReleaseScopeBuffer)(unit->mWorld, unit->m_buffer);
 }
 
+void allocate_scope_buffer(World *inWorld, void* inUserData, struct sc_msg_iter *args, void *replyAddr)
+{
+	int index = args->geti();
+	int channels = args->geti();
+	int frames = args->geti();
+
+	bool ok = (*ft->fAllocateScopeBuffer)(inWorld, index, channels, frames);
+	if( !ok && inWorld->mVerbosity > -1) {
+		Print("Cannot allocate scope buffer: index: %d, channels: %d, size: %d\n",
+			  index, channels, frames);
+	}
+}
+
+void release_scope_buffer(World *inWorld, void* inUserData, struct sc_msg_iter *args, void *replyAddr)
+{
+	int index = args->geti();
+	bool ok = (*ft->fReleaseScopeBuffer)(inWorld, index);
+	if (!ok && inWorld->mVerbosity > -1)
+		Print("Cannot release scope buffer %i, it has not been allocated.\n", index);
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7695,6 +7717,9 @@ PluginLoad(Delay)
 	DefineSimpleCantAliasUnit(TGrains);
 	DefineDtorUnit(ScopeOut);
 	DefineDtorUnit(ScopeOut2);
+	DefinePlugInCmd("allocateScopeBuffer", &allocate_scope_buffer, 0);
+	DefinePlugInCmd("releaseScopeBuffer", &release_scope_buffer, 0);
+
 	DefineDelayUnit(Pluck);
 
 	DefineSimpleUnit(DelTapWr);

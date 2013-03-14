@@ -146,18 +146,27 @@ public:
 		return shm->get_control_busses();
 	}
 
-	scope_buffer_writer get_scope_buffer_writer(unsigned int index, unsigned int channels, unsigned int size)
+	bool allocate_scope_buffer(unsigned int index, unsigned int channels, unsigned int size)
 	{
 		scope_buffer *buf = shm->get_scope_buffer(index);
-		if (buf)
-			return scope_buffer_writer(buf, scope_pool, channels, size);
-		else
-			return scope_buffer_writer();
+		if (!buf)
+			return false;
+		scope_buffer_writer writer(buf, scope_pool, channels, size);
+		return writer.valid();
 	}
 
-	void release_scope_buffer_writer( scope_buffer_writer & writer )
+	scope_buffer_writer get_scope_buffer_writer(unsigned int index)
 	{
+		return scope_buffer_writer( shm->get_scope_buffer(index) );
+	}
+
+	bool release_scope_buffer(unsigned int index)
+	{
+		scope_buffer_writer writer( shm->get_scope_buffer(index) );
+		if (!writer.valid())
+			return false;
 		writer.release( scope_pool );
+		return true;
 	}
 
 private:

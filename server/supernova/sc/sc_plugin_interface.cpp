@@ -292,15 +292,22 @@ void free_parent_group(Unit * unit)
     sc_factory->add_done_node(group);
 }
 
-bool get_scope_buffer(World *inWorld, int index, int channels, int maxFrames, ScopeBufferHnd &hnd)
+bool allocate_scope_buffer(World *inWorld, int index, int channels, int maxFrames)
 {
-    scope_buffer_writer writer = instance->get_scope_buffer_writer( index, channels, maxFrames );
+    if (channels < 1 || maxFrames < 1)
+        return false;
+    return instance->allocate_scope_buffer(index, channels, maxFrames);
+}
+
+bool get_scope_buffer(World *inWorld, int index, ScopeBufferHnd &hnd)
+{
+    scope_buffer_writer writer = instance->get_scope_buffer_writer( index );
 
     if( writer.valid() ) {
         hnd.internalData = writer.buffer;
         hnd.data = writer.data();
-        hnd.channels = channels;
-        hnd.maxFrames = maxFrames;
+        hnd.channels = writer.channels();
+        hnd.maxFrames = writer.max_frames();
         return true;
     }
     else {
@@ -316,10 +323,9 @@ void push_scope_buffer(World *inWorld, ScopeBufferHnd &hnd, int frames)
     hnd.data = writer.data();
 }
 
-void release_scope_buffer(World *inWorld, ScopeBufferHnd &hnd)
+bool release_scope_buffer(World *inWorld, int index)
 {
-    scope_buffer_writer writer(reinterpret_cast<scope_buffer*>(hnd.internalData));
-    instance->release_scope_buffer_writer( writer );
+    return instance->release_scope_buffer( index );
 }
 
 } /* namespace */
@@ -689,6 +695,7 @@ void sc_plugin_interface::initialize(server_arguments const & args, float * cont
     sc_interface.fSCfftDoIFFT = &scfft_doifft;
 
     /* scope API */
+    sc_interface.fAllocateScopeBuffer = &allocate_scope_buffer;
     sc_interface.fGetScopeBuffer = &get_scope_buffer;
     sc_interface.fPushScopeBuffer = &push_scope_buffer;
     sc_interface.fReleaseScopeBuffer = &release_scope_buffer;

@@ -183,9 +183,10 @@ void sc_SetDenormalFlags()
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static bool getScopeBuffer(World *inWorld, int index, int channels, int maxFrames, ScopeBufferHnd &hnd);
+static bool allocateScopeBuffer(World *inWorld, int index, int channels, int maxFrames);
+static bool getScopeBuffer(World *inWorld, int index, ScopeBufferHnd &hnd);
 static void pushScopeBuffer(World *inWorld, ScopeBufferHnd &hnd, int frames);
-static void releaseScopeBuffer(World *inWorld, ScopeBufferHnd &hnd);
+static bool releaseScopeBuffer(World *inWorld, int index);
 
 void InterfaceTable_Init()
 {
@@ -248,6 +249,7 @@ void InterfaceTable_Init()
 	ft->fSCfftDoFFT = &scfft_dofft;
 	ft->fSCfftDoIFFT = &scfft_doifft;
 
+	ft->fAllocateScopeBuffer = &allocateScopeBuffer;
 	ft->fGetScopeBuffer = &getScopeBuffer;
 	ft->fPushScopeBuffer = &pushScopeBuffer;
 	ft->fReleaseScopeBuffer = &releaseScopeBuffer;
@@ -1047,17 +1049,25 @@ void World_NRTUnlock(World *world)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool getScopeBuffer(World *inWorld, int index, int channels, int maxFrames, ScopeBufferHnd &hnd)
+bool allocateScopeBuffer(World *inWorld, int index, int channels, int maxFrames)
+{
+	if (channels < 1 || maxFrames < 1)
+		return false;
+	server_shared_memory_creator * shm = inWorld->hw->mShmem;
+	return shm->allocate_scope_buffer(index, channels, maxFrames);
+}
+
+bool getScopeBuffer(World *inWorld, int index, ScopeBufferHnd &hnd)
 {
 	server_shared_memory_creator * shm = inWorld->hw->mShmem;
 
-	scope_buffer_writer writer = shm->get_scope_buffer_writer( index, channels, maxFrames );
+	scope_buffer_writer writer = shm->get_scope_buffer_writer( index );
 
 	if( writer.valid() ) {
 		hnd.internalData = writer.buffer;
 		hnd.data = writer.data();
-		hnd.channels = channels;
-		hnd.maxFrames = maxFrames;
+		hnd.channels = writer.channels();
+		hnd.maxFrames = writer.max_frames();
 		return true;
 	}
 	else {
@@ -1073,11 +1083,10 @@ void pushScopeBuffer(World *inWorld, ScopeBufferHnd &hnd, int frames)
 	hnd.data = writer.data();
 }
 
-void releaseScopeBuffer(World *inWorld, ScopeBufferHnd &hnd)
+bool releaseScopeBuffer(World *inWorld, int index)
 {
-	scope_buffer_writer writer(reinterpret_cast<scope_buffer*>(hnd.internalData));
 	server_shared_memory_creator * shm = inWorld->hw->mShmem;
-	shm->release_scope_buffer_writer( writer );
+	return shm->release_scope_buffer( index );
 }
 
 ////////////////////////////////////////////////////////////////////////////////

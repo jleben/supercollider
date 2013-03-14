@@ -205,7 +205,7 @@ public:
 
 	bool valid()
 	{
-		return buffer != 0;
+		return buffer != 0 && buffer->valid();
 	}
 
 	float *data()
@@ -213,9 +213,14 @@ public:
 		return buffer->write_address();
 	}
 
-	unsigned int max_size()
+	unsigned int max_frames()
 	{
 		return buffer->_size;
+	}
+
+	unsigned int channels()
+	{
+		return buffer->_channels;
 	}
 
 	void push( unsigned int frames )
