@@ -447,7 +447,7 @@ BusScopeSynth {
   // Encapsulate management of server resources
 
   var server, buffer, synthDefName, synth;
-  var playThread, playCond;
+  var playThread;
 
   *new { arg server;
     var instance;
@@ -461,55 +461,48 @@ BusScopeSynth {
     var synthDef;
     var synthArgs;
     var bufIndex;
-    var busChannels;
+    var numChannels;
 
     if(server.serverRunning.not) { ^this };
 
     this.stop;
+    if (buffer.notNil) { buffer.free };
 
-    if (buffer.isNil) {
-      buffer = ScopeBuffer.alloc(server);
-      synthDefName = "stethoscope" ++ buffer.index.asString;
+    if( bus.class === Bus ) {
+      numChannels = bus.numChannels.asInteger;
+    }{
+      numChannels = 0;
+      bus.do { |b| numChannels = numChannels + b.numChannels.asInteger }
     };
+
+    buffer = ScopeBuffer.alloc(server, numChannels, bufSize);
+    synthDefName = "stethoscope" ++ buffer.index.asString;
 
     bufIndex = buffer.index.asInteger;
 
     if( bus.class === Bus ) {
-      busChannels = bus.numChannels.asInteger;
       synthDef = SynthDef(synthDefName, { arg busIndex, rate, cycle;
         var z;
         z = Select.ar(rate, [
-          In.ar(busIndex, busChannels),
-          K2A.ar(In.kr(busIndex, busChannels))]
+          In.ar(busIndex, numChannels),
+          K2A.ar(In.kr(busIndex, numChannels))]
         );
-        ScopeOut2.ar(z, bufIndex, bufSize, cycle );
+        ScopeOut2.ar(z, bufIndex, cycle );
       });
       synthArgs = [\busIndex, bus.index.asInteger, \rate, if('audio' === bus.rate, 0, 1), \cycle, cycle];
     }{
       synthDef = SynthDef(synthDefName, { arg cycle;
         var z = Array();
         bus.do { |b| z = z ++ b.ar };
-        ScopeOut2.ar(z, bufIndex, bufSize, cycle);
+        ScopeOut2.ar(z, bufIndex, cycle);
       });
       synthArgs =	[\cycle, cycle];
     };
 
     playThread = fork {
-      var cond;
-      //("BufScopeSynth: waiting on previous synth...").postln;
-      if (playCond.notNil) { playCond.wait };
-      //postln("BufScopeSynth: got way.");
       synthDef.send(server);
       server.sync;
-      //postln("BufScopeSynth: synthdef sent.");
       synth = Synth.tail(RootNode(server), synthDef.name, synthArgs);
-      //postln("BufScopeSynth: made synth:" + synth.nodeID);
-      playCond = cond = Condition();
-      synth.onFree { |thisSynth|
-        //postln("BufScopeSynth: Synth freed:" + thisSynth.nodeID);
-        cond.test = true; cond.signal;
-        if (synth.notNil and: {synth.nodeID == thisSynth.nodeID}) { synth = nil; }
-      }
     }
   }
 
@@ -520,7 +513,7 @@ BusScopeSynth {
     };
   }
 
-  isRunning { ^playThread.notNil }
+  isRunning { ^synth.notNil }
 
 	bufferIndex { ^ buffer !? { buffer.index } }
 
@@ -549,6 +542,5 @@ BusScopeSynth {
   doOnServerQuit {
     buffer = nil;
     synth = nil;
-    playCond = nil;
   }
 }
