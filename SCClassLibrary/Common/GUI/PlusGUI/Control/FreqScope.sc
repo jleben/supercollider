@@ -195,10 +195,9 @@ PlusFreqScope {
 	}
 
 	allocBuffers {
-		// Free old buf only after allocating new one, to ensure index is changed.
-		var old_buf = scopebuf;
+		this.freeBuffers;
 		if (this.shmScopeAvailable) {
-			scopebuf = ScopeBuffer.alloc(server);
+			scopebuf = ScopeBuffer.alloc(server, 1, bufSize/4);
 			scope.bufnum = scopebuf.bufnum;
 		} {
 			Buffer.alloc(server, bufSize/4, 1, { |sbuf|
@@ -206,7 +205,6 @@ PlusFreqScope {
 				scopebuf = sbuf;
 			});
 		};
-		if (old_buf.notNil) { old_buf.free; }
 	}
 
 	freeBuffers {
@@ -217,11 +215,10 @@ PlusFreqScope {
 
 	start {
 		var defname, args;
-		// Never leave a man behind:
+
 		if (synth.notNil) { synth.free };
-		// Always reallocate buffer, because the older ScopeBuffer will not be
-		// freed until the old Synth is destroyed (asynchronously):
-		this.allocBuffers;
+
+		if (scopebuf.isNil) { this.allocBuffers };
 
 		defname = specialSynthDef ?? {
 			"freqScope" ++ freqMode.asString ++ if (this.shmScopeAvailable) {"_shm"} {""}
