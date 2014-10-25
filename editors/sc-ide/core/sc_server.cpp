@@ -25,6 +25,7 @@
 #include "sc_process.hpp"
 #include "main.hpp"
 #include "../widgets/util/volume_widget.hpp"
+#include "sc_server/bus_monitor.hpp"
 
 #include "yaml-cpp/node.h"
 #include "yaml-cpp/parser.h"
@@ -65,6 +66,8 @@ ScServer::ScServer(ScProcess *scLang, Settings::Manager *settings, QObject *pare
     connect(scLang, SIGNAL(response(QString,QString)),
             this, SLOT(onScLangReponse(QString,QString)));
     connect(mUdpSocket, SIGNAL(readyRead()), this, SLOT(onServerDataArrived()));
+
+    mBusMonitor = new ScBusMonitor(this, mLang, this);
 }
 
 void ScServer::createActions(Settings::Manager * settings)
@@ -463,14 +466,10 @@ void ScServer::timerEvent(QTimerEvent * event)
     if (mPort)
     {
         char buffer[512];
-        osc::OutboundPacketStream stream(buffer, 512);
-        stream << osc::BeginMessage("status");
-        stream << osc::MessageTerminator();
-
-        qint64 sentSize = mUdpSocket->writeDatagram(stream.Data(), stream.Size(),
-                                                    mServerAddress, mPort);
-        if (sentSize == -1)
-            qCritical("Failed to send server status request.");
+        osc::OutboundPacketStream message(buffer, 512);
+        message << osc::BeginMessage("status");
+        message << osc::MessageTerminator();
+        send(message);
     }
 }
 
@@ -479,6 +478,7 @@ void ScServer::onRunningStateChanged( bool running, QString const & hostName, in
     if (running) {
         mServerAddress = QHostAddress(hostName);
         mPort = port;
+        requestNotifications();
     } else {
         mServerAddress.clear();
         mPort = 0;
@@ -489,6 +489,42 @@ void ScServer::onRunningStateChanged( bool running, QString const & hostName, in
     updateToggleRunningAction();
     updateRecordingAction();
     updateEnabledActions();
+}
+
+void ScServer::requestNotifications()
+{
+    char buffer[512];
+    osc::OutboundPacketStream message(buffer, 512);
+    message << osc::BeginMessage("notify");
+    message << 1;
+    message << osc::MessageTerminator();
+
+    send(message);
+}
+
+void ScServer::send( const osc::OutboundPacketStream & message )
+{
+    if (!isRunning())
+    {
+        qCritical("Server not running.");
+        return;
+    }
+
+    qint64 sentSize = mUdpSocket->writeDatagram(message.Data(), message.Size(),
+                                                mServerAddress, mPort);
+    if (sentSize == -1)
+        qCritical("Failed to send server notifications request.");
+}
+
+void ScServer::subscribe( const QString & message,
+                          QObject *subscriber, const char * slot)
+{
+    OscMessageHandler *& handler = mOscMessageHandlers[message];
+    if (!handler)
+        handler = new OscMessageHandler(this);
+
+    connect(handler, SIGNAL(received(osc::ReceivedMessage)),
+            subscriber, slot);
 }
 
 void ScServer::onServerDataArrived()
@@ -507,10 +543,39 @@ void ScServer::onServerDataArrived()
 
 void ScServer::processOscMessage( const osc::ReceivedMessage & message )
 {
-    if (strcmp(message.AddressPattern(), "/status.reply") == 0)
+    qDebug() << "Server message:"
+             << message.AddressPattern()
+             << message.ArgumentCount()
+             << message.TypeTags();
+
+    const char *address = message.AddressPattern();
+    if (strcmp(address, "/status.reply") == 0)
     {
         processServerStatusMessage(message);
     }
+    else if (strcmp(address, "/fail") == 0)
+    {
+        //qCritical("failure");
+        processCommandFailureMessage(message);
+    }
+    else
+    {
+        auto handlerRef = mOscMessageHandlers.find(QString(address));
+        if (handlerRef != mOscMessageHandlers.end())
+            emit (*handlerRef)->received(message);
+
+        emit received(message);
+    }
+}
+
+void ScServer::processCommandFailureMessage( const osc::ReceivedMessage &message )
+{
+    const char * command;
+    const char * error;
+    auto args = message.ArgumentStream();
+    args >> command >> error;
+    qCritical() << "** Failed command:" << command;
+    qCritical() << "   Reason:" << error;
 }
 
 void ScServer::processServerStatusMessage(const osc::ReceivedMessage &message )
@@ -539,6 +604,11 @@ void ScServer::processServerStatusMessage(const osc::ReceivedMessage &message )
              >> peakCPU;
     }
     catch (osc::MissingArgumentException)
+    {
+        qCritical("Misformatted server status message.");
+        return;
+    }
+    catch(osc::WrongArgumentTypeException)
     {
         qCritical("Misformatted server status message.");
         return;

@@ -26,14 +26,30 @@
 #include <QAction>
 #include <QProcess>
 #include <QTimer>
+#include <QHash>
 #include <boost/chrono/system_clocks.hpp>
 #include <osc/OscReceivedElements.h>
+#include <osc/OscOutboundPacketStream.h>
+
+//Q_DECLARE_METATYPE(osc::ReceivedMessage);
+//Q_DECLARE_METATYPE(osc::OutboundPacketStream);
 
 namespace ScIDE {
 
 class ScProcess;
 class VolumeWidget;
+class ScBusMonitor;
 namespace Settings { class Manager; }
+
+class OscMessageHandler : public QObject
+{
+    Q_OBJECT
+    friend class ScServer;
+public:
+    OscMessageHandler( QObject * parent = 0): QObject(parent) {}
+signals:
+    void received( const osc::ReceivedMessage & );
+};
 
 class ScServer : public QObject
 {
@@ -81,6 +97,8 @@ public:
     bool isRecording() const;
     boost::chrono::seconds recordingTime() const;
 
+    void subscribe( const QString & message, QObject *, const char *slot );
+
 public slots:
     void boot();
     void reboot();
@@ -101,6 +119,7 @@ public slots:
     void mute() { setMuted(true); }
     void unmute() { setMuted(false); }
     void setRecording( bool active );
+    void send( const osc::OutboundPacketStream & );
 
 signals:
     void runningStateChange( bool running, QString const & hostName, int port );
@@ -110,6 +129,7 @@ signals:
     void volumeChanged( float volume );
     void mutedChanged( bool muted );
     void recordingChanged( bool recording );
+    void received( const osc::ReceivedMessage & );
 
 private slots:
     void onScLangStateChanged( QProcess::ProcessState );
@@ -129,10 +149,7 @@ private:
     void createActions( Settings::Manager * );
     void handleRuningStateChangedMsg( const QString & data );
     void onRunningStateChanged( bool running, QString const & hostName, int port );
-
-    void processServerStatusMessage( const osc::ReceivedMessage & );
-
-    void processOscMessage( const osc::ReceivedMessage & );
+    void requestNotifications();
 
     void processOscPacket( const osc::ReceivedPacket & packet )
     {
@@ -154,6 +171,36 @@ private:
         }
     }
 
+    void processOscMessage( const osc::ReceivedMessage & );
+    void processServerStatusMessage( const osc::ReceivedMessage & );
+    void processCommandFailureMessage( const osc::ReceivedMessage & );
+
+
+#if 0
+    template<typename T>
+    bool sendOscMessage( osc::OutboundPacketStream & stream, const T & arg)
+    {
+        stream << arg;
+        sendOscMessage(stream, arg);
+
+        stream << osc::MessageTerminator();
+    }
+
+    template<typename H, typename ...T>
+    bool sendOscMessage( osc::OutboundPacketStream & stream,
+                         const H & arg, const T & args ...)
+    {
+        stream << arg;
+        sendOscMessage(stream, args...);
+    }
+
+    template<typename H, typename ...T>
+    bool sendOscMessage( size_t max_bytes, const char *address,
+                         const H & arg, const T & ... args)
+    {
+
+    }
+#endif
     ScProcess *mLang;
 
     QUdpSocket * mUdpSocket;
@@ -166,6 +213,10 @@ private:
     QTimer mRecordTimer;
     boost::chrono::system_clock::time_point mRecordTime;
     bool mIsRecording;
+
+    QHash<QString,OscMessageHandler*> mOscMessageHandlers;
+
+    ScBusMonitor *mBusMonitor;
 };
 
 }
