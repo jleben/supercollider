@@ -34,6 +34,7 @@ set ( ide_moc_hdr
     core/sig_mux.hpp
     core/sc_process.hpp
     core/sc_server.hpp
+    core/sc_server/bus_monitor.hpp
     core/doc_manager.hpp
     core/settings/manager.hpp
     core/session_manager.hpp
@@ -54,6 +55,7 @@ set ( ide_moc_hdr
     widgets/help_browser.hpp
     widgets/audio_status_box.hpp
     widgets/lang_status_box.hpp
+    widgets/bus_monitor_view.hpp
     widgets/code_editor/editor.hpp
     widgets/code_editor/sc_editor.hpp
     widgets/code_editor/highlighter.hpp
@@ -84,6 +86,7 @@ set ( ide_src
     core/doc_manager.cpp
     core/sc_process.cpp
     core/sc_server.cpp
+    core/sc_server/bus_monitor.cpp
     core/sc_introspection.cpp
     core/sc_lexer.cpp
     core/settings/serialization.cpp
@@ -103,6 +106,7 @@ set ( ide_src
     widgets/help_browser.cpp
     widgets/audio_status_box.cpp
     widgets/lang_status_box.cpp
+    widgets/bus_monitor_view.cpp
     widgets/code_editor/editor.cpp
     widgets/code_editor/sc_editor.cpp
     widgets/code_editor/highlighter.cpp

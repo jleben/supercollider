@@ -41,6 +41,8 @@ ScBusMonitor::ScBusMonitor( ScServer *server, ScProcess *lang, QObject *parent )
 
     mServer->subscribe("/server-audio-bus-levels",
                        this, SLOT(onServerMessage(osc::ReceivedMessage)));
+    mServer->subscribe("/n_end",
+                       this, SLOT(onServerMessage(osc::ReceivedMessage)));
 }
 
 void ScBusMonitor::onServerStateChanged( bool running )
@@ -51,8 +53,8 @@ void ScBusMonitor::onServerStateChanged( bool running )
     {
         QString play_bus_monitor =
                 "SynthDef(\"audio-bus-levels\", {"
-                    "var in = In.ar(0, 5);"
-                    "SendPeakRMS.kr(in, 3, 3, \"/server-audio-bus-levels\")"
+                    "var in = In.ar(0, Server.default.options.numAudioBusChannels);"
+                    "SendPeakRMS.kr(in, 20, 0.1, \"/server-audio-bus-levels\")"
                 "}).play(RootNode(Server.default), nil, 'addToTail')";
 
         mLang->evaluateCode(play_bus_monitor, true);
@@ -61,7 +63,7 @@ void ScBusMonitor::onServerStateChanged( bool running )
 
 void ScBusMonitor::onServerMessage( const osc::ReceivedMessage & message )
 {
-    qDebug("ScBusMonitor: server levels received!");
+    //qDebug("ScBusMonitor: server levels received!");
 
     unsigned int arg_count = message.ArgumentCount();
 
@@ -76,12 +78,10 @@ void ScBusMonitor::onServerMessage( const osc::ReceivedMessage & message )
         args >> dummy;
         args >> dummy;
 
-        for (int i = 2; i < arg_count; ++i)
+        for (int i = 0; i < arg_count-2; ++i)
         {
             args >> mBuffer[i];
-            cout << mBuffer[i] << " ";
         }
-        cout << endl;
     }
     catch (osc::WrongArgumentTypeException)
     {
@@ -90,6 +90,23 @@ void ScBusMonitor::onServerMessage( const osc::ReceivedMessage & message )
     }
 
     emit update();
+}
+
+int ScBusMonitor::busCount()
+{
+    return mBuffer.size() / 2;
+}
+
+float ScBusMonitor::peak(int bus)
+{
+    assert(bus * 2 < mBuffer.size());
+    return mBuffer[bus * 2];
+}
+
+float ScBusMonitor::rms(int bus)
+{
+    assert(bus * 2 + 1 < mBuffer.size());
+    return mBuffer[bus * 2 + 1];
 }
 
 }

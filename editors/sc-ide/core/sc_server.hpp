@@ -38,7 +38,6 @@ namespace ScIDE {
 
 class ScProcess;
 class VolumeWidget;
-class ScBusMonitor;
 namespace Settings { class Manager; }
 
 class OscMessageHandler : public QObject
@@ -215,8 +214,6 @@ private:
     bool mIsRecording;
 
     QHash<QString,OscMessageHandler*> mOscMessageHandlers;
-
-    ScBusMonitor *mBusMonitor;
 };
 
 }

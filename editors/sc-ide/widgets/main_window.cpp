@@ -36,6 +36,7 @@
 #include "tool_box.hpp"
 #include "audio_status_box.hpp"
 #include "lang_status_box.hpp"
+#include "bus_monitor_view.hpp"
 #include "../core/main.hpp"
 #include "../core/doc_manager.hpp"
 #include "../core/session_manager.hpp"
@@ -150,6 +151,10 @@ MainWindow::MainWindow(Main * main) :
     mPostDocklet = new PostDocklet(this);
     mPostDocklet->setObjectName("post-dock");
     addDockWidget(Qt::RightDockWidgetArea, mPostDocklet->dockWidget());
+
+    auto busMonitorDocklet = new BusMonitorDocklet(mMain, this);
+    busMonitorDocklet->setObjectName("server-bus-monitor");
+    addDockWidget(Qt::RightDockWidgetArea, busMonitorDocklet->dockWidget());
 
     // Layout
     QVBoxLayout *center_box = new QVBoxLayout;

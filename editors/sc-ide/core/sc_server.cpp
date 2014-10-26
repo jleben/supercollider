@@ -66,8 +66,6 @@ ScServer::ScServer(ScProcess *scLang, Settings::Manager *settings, QObject *pare
     connect(scLang, SIGNAL(response(QString,QString)),
             this, SLOT(onScLangReponse(QString,QString)));
     connect(mUdpSocket, SIGNAL(readyRead()), this, SLOT(onServerDataArrived()));
-
-    mBusMonitor = new ScBusMonitor(this, mLang, this);
 }
 
 void ScServer::createActions(Settings::Manager * settings)
@@ -543,10 +541,12 @@ void ScServer::onServerDataArrived()
 
 void ScServer::processOscMessage( const osc::ReceivedMessage & message )
 {
+#if 0
     qDebug() << "Server message:"
              << message.AddressPattern()
              << message.ArgumentCount()
              << message.TypeTags();
+#endif
 
     const char *address = message.AddressPattern();
     if (strcmp(address, "/status.reply") == 0)
