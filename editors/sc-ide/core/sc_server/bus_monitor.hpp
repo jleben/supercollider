@@ -44,7 +44,7 @@ signals:
 
 private slots:
     void onServerStateChanged( bool running );
-    void onServerMessage( const osc::ReceivedMessage & );
+    void onLevelsReceived( const osc::ReceivedMessage & );
 
 private:
     ScServer *mServer;

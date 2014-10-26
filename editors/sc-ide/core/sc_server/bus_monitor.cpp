@@ -40,9 +40,7 @@ ScBusMonitor::ScBusMonitor( ScServer *server, ScProcess *lang, QObject *parent )
             this, SLOT(onServerMessage(osc::ReceivedMessage)));*/
 
     mServer->subscribe("/server-audio-bus-levels",
-                       this, SLOT(onServerMessage(osc::ReceivedMessage)));
-    mServer->subscribe("/n_end",
-                       this, SLOT(onServerMessage(osc::ReceivedMessage)));
+                       this, SLOT(onLevelsReceived(osc::ReceivedMessage)));
 }
 
 void ScBusMonitor::onServerStateChanged( bool running )
@@ -61,7 +59,7 @@ void ScBusMonitor::onServerStateChanged( bool running )
     }
 }
 
-void ScBusMonitor::onServerMessage( const osc::ReceivedMessage & message )
+void ScBusMonitor::onLevelsReceived( const osc::ReceivedMessage & message )
 {
     //qDebug("ScBusMonitor: server levels received!");
 
@@ -74,9 +72,10 @@ void ScBusMonitor::onServerMessage( const osc::ReceivedMessage & message )
 
     try
     {
-        int dummy;
-        args >> dummy;
-        args >> dummy;
+        int nodeID;
+        int requestID;
+        args >> nodeID;
+        args >> requestID;
 
         for (int i = 0; i < arg_count-2; ++i)
         {
