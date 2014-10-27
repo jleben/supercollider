@@ -35,7 +35,7 @@ public:
 private slots:
     void onServerStatusReply(int ugens, int synths, int groups, int synthDefs,
                              float avgCPU, float peakCPU);
-    void onServerRunningChanged( bool running, QString const & hostName, int port );
+    void onServerStateChanged(int);
 
     void updateStatistics();
     void updateVolumeLabel(float volume);

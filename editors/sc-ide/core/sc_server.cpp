@@ -178,7 +178,7 @@ void ScServer::createActions(Settings::Manager * settings)
 
 void ScServer::updateToggleRunningAction()
 {
-    QAction *targetAction = isRunning() ? mActions[Quit] : mActions[Boot];
+    QAction *targetAction = isActive() ? mActions[Quit] : mActions[Boot];
     mActions[ToggleRunning]->setText( targetAction->text() );
     mActions[ToggleRunning]->setIcon( targetAction->icon() );
     mActions[ToggleRunning]->setShortcut( targetAction->shortcut() );
@@ -186,7 +186,7 @@ void ScServer::updateToggleRunningAction()
 
 void ScServer::boot()
 {
-    if (isRunning())
+    if (isActive())
         return;
 
     mLang->evaluateCode( "ScIDE.defaultServer.boot", true );
@@ -194,7 +194,7 @@ void ScServer::boot()
 
 void ScServer::quit()
 {
-    if (!isRunning())
+    if (!isActive())
         return;
 
     mLang->evaluateCode( "ScIDE.defaultServer.quit", true );
@@ -212,7 +212,7 @@ void ScServer::reboot()
 
 void ScServer::toggleRunning()
 {
-    if (isRunning())
+    if (isActive())
         quit();
     else
         boot();
@@ -327,7 +327,7 @@ void ScServer::setRecording( bool doRecord )
     static const QString startRecordingCommand("ScIDE.defaultServer.record");
     static const QString stopRecordingCommand("ScIDE.defaultServer.stopRecording");
 
-    if (!isRunning() || mIsRecording == doRecord)
+    if (!isActive() || mIsRecording == doRecord)
         return;
 
     mIsRecording = doRecord;
@@ -434,7 +434,7 @@ void ScServer::handleRuningStateChangedMsg( const QString & data )
     stream << data.toStdString();
     YAML::Parser parser(stream);
 
-    bool serverRunningState;
+    bool isRunning;
     std::string hostName;
     int port;
 
@@ -442,7 +442,7 @@ void ScServer::handleRuningStateChangedMsg( const QString & data )
     while(parser.GetNextDocument(doc)) {
         assert(doc.Type() == YAML::NodeType::Sequence);
 
-        bool success = doc[0].Read(serverRunningState);
+        bool success = doc[0].Read(isRunning);
         if (!success) return; // LATER: report error?
 
         success = doc[1].Read(hostName);
@@ -454,14 +454,15 @@ void ScServer::handleRuningStateChangedMsg( const QString & data )
 
     QString qstrHostName( hostName.c_str() );
 
-    onRunningStateChanged( serverRunningState, qstrHostName, port );
-
-    emit runningStateChange( serverRunningState, qstrHostName, port );
+    if (isRunning)
+        onStart(qstrHostName, port);
+    else
+        onStop();
 }
 
 void ScServer::timerEvent(QTimerEvent * event)
 {
-    if (mPort)
+    if (isActive())
     {
         char buffer[512];
         osc::OutboundPacketStream message(buffer, 512);
@@ -471,47 +472,74 @@ void ScServer::timerEvent(QTimerEvent * event)
     }
 }
 
-void ScServer::onRunningStateChanged( bool running, QString const & hostName, int port )
+void ScServer::onStart( QString const & hostName, int port )
 {
-    if (running) {
-        mServerAddress = QHostAddress(hostName);
-        mPort = port;
-        requestNotifications();
-    } else {
-        mServerAddress.clear();
-        mPort = 0;
-        mIsRecording = false;
-        mRecordTimer.stop();
+    mServerAddress = QHostAddress(hostName);
+    mPort = port;
+
+    char buffer[512];
+    osc::OutboundPacketStream notifyRequest(buffer, 512);
+    notifyRequest << osc::BeginMessage("notify");
+    notifyRequest << 1;
+    notifyRequest << osc::MessageTerminator();
+
+    send(notifyRequest);
+}
+
+void ScServer::onDoneRegistration( const osc::ReceivedMessage &message )
+{
+    if (!mPort)
+        return;
+
+    auto args = message.ArgumentStream();
+
+    if (message.ArgumentCount() > 1)
+    {
+        const char *skipped_cmd;
+        args >> skipped_cmd;
+        args >> mId;
     }
+    else
+        mId = 1;
+
+    qDebug() << "Registered. ID =" << mId;
+
+    mNodeIds = NodeIdAllocator(mId);
 
     updateToggleRunningAction();
     updateRecordingAction();
     updateEnabledActions();
+
+    emit stateChanged(Active);
 }
 
-void ScServer::requestNotifications()
+void ScServer::onStop()
 {
-    char buffer[512];
-    osc::OutboundPacketStream message(buffer, 512);
-    message << osc::BeginMessage("notify");
-    message << 1;
-    message << osc::MessageTerminator();
+    mServerAddress.clear();
+    mPort = 0;
+    mId = -1;
+    mIsRecording = false;
+    mRecordTimer.stop();
 
-    send(message);
+    updateToggleRunningAction();
+    updateRecordingAction();
+    updateEnabledActions();
+
+    emit stateChanged(Inactive);
 }
 
 void ScServer::send( const osc::OutboundPacketStream & message )
 {
-    if (!isRunning())
+    if (!mPort)
     {
-        qCritical("Server not running.");
+        qCritical("ScServer: Can not send OSC - no port assigned.");
         return;
     }
 
     qint64 sentSize = mUdpSocket->writeDatagram(message.Data(), message.Size(),
                                                 mServerAddress, mPort);
     if (sentSize == -1)
-        qCritical("Failed to send server notifications request.");
+        qCritical("Failed to send OSC.");
 }
 
 void ScServer::subscribe( const QString & message,
@@ -549,7 +577,15 @@ void ScServer::processOscMessage( const osc::ReceivedMessage & message )
 #endif
 
     const char *address = message.AddressPattern();
-    if (strcmp(address, "/status.reply") == 0)
+    if (strcmp(address, "/done") == 0)
+    {
+        const char *cmd;
+        auto arg = message.ArgumentStream();
+        arg >> cmd;
+        if (strcmp(cmd, "/notify") == 0)
+            onDoneRegistration(message);
+    }
+    else if (strcmp(address, "/status.reply") == 0)
     {
         processServerStatusMessage(message);
     }
@@ -580,7 +616,7 @@ void ScServer::processCommandFailureMessage( const osc::ReceivedMessage &message
 
 void ScServer::processServerStatusMessage(const osc::ReceivedMessage &message )
 {
-    if (!isRunning())
+    if (!isActive())
         return;
 
     int	unused;
@@ -622,7 +658,7 @@ void ScServer::processServerStatusMessage(const osc::ReceivedMessage &message )
 void ScServer::updateEnabledActions()
 {
     bool langRunning = mLang->state() == QProcess::Running;
-    bool langAndServerRunning = langRunning && isRunning();
+    bool langAndServerRunning = langRunning && isActive();
 
     mActions[ToggleRunning]->setEnabled(langRunning);
     mActions[KillAll]->setEnabled(langRunning);

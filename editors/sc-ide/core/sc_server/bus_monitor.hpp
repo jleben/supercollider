@@ -43,7 +43,7 @@ signals:
     void update();
 
 private slots:
-    void onServerStateChanged( bool running );
+    void onServerStateChanged( int state );
     void onLevelsReceived( const osc::ReceivedMessage & );
 
 private:

@@ -30,6 +30,7 @@
 #include <boost/chrono/system_clocks.hpp>
 #include <osc/OscReceivedElements.h>
 #include <osc/OscOutboundPacketStream.h>
+#include <cstdint>
 
 //Q_DECLARE_METATYPE(osc::ReceivedMessage);
 //Q_DECLARE_METATYPE(osc::OutboundPacketStream);
@@ -78,9 +79,18 @@ public:
         ActionCount
     };
 
+    enum State
+    {
+        Inactive,
+        Active
+    };
+
     ScServer(ScProcess *scLang, Settings::Manager * settings, QObject * parent);
 
-    bool isRunning() { return mPort != 0; }
+    bool isActive() const { return mPort != 0 && mId != -1; }
+    State state() const { return isActive() ? Active : Inactive; }
+    QHostAddress address() const { return mServerAddress; }
+    int port() const { return mPort; }
 
     QAction *action(ActionRole role) { return mActions[role]; }
 
@@ -121,7 +131,7 @@ public slots:
     void send( const osc::OutboundPacketStream & );
 
 signals:
-    void runningStateChange( bool running, QString const & hostName, int port );
+    void stateChanged( int state );
     void updateServerStatus (int ugenCount, int synthCount,
                              int groupCount, int defCount,
                              float avgCPU, float peakCPU);
@@ -145,10 +155,38 @@ protected:
     virtual void timerEvent(QTimerEvent * event);
 
 private:
+    class NodeIdAllocator
+    {
+    public:
+        NodeIdAllocator():
+            mMask(0),
+            mNextID(0)
+        {}
+
+        NodeIdAllocator(int32_t globalId)
+        {
+            mMask = globalId << 26;
+            mNextID = 0;
+        }
+
+        int32_t next()
+        {
+            int32_t id = mNextID | mMask;
+            mNextID = ++mNextID % 0x03FFFFFF;
+            return id;
+        }
+
+    private:
+        int32_t mMask;
+        int32_t mNextID;
+    };
+
+private:
     void createActions( Settings::Manager * );
     void handleRuningStateChangedMsg( const QString & data );
-    void onRunningStateChanged( bool running, QString const & hostName, int port );
-    void requestNotifications();
+    void onStart( QString const & hostName, int port );
+    void onDoneRegistration( const osc::ReceivedMessage & );
+    void onStop();
 
     void processOscPacket( const osc::ReceivedPacket & packet )
     {
@@ -205,6 +243,9 @@ private:
     QUdpSocket * mUdpSocket;
     QHostAddress mServerAddress;
     int mPort;
+
+    int32_t mId;
+    NodeIdAllocator mNodeIds;
 
     QAction * mActions[ActionCount];
 

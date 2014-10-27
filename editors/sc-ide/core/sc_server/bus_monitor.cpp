@@ -34,20 +34,16 @@ ScBusMonitor::ScBusMonitor( ScServer *server, ScProcess *lang, QObject *parent )
     mServer(server),
     mLang(lang)
 {
-    connect(mServer, SIGNAL(runningStateChange(bool,QString,int)),
-            this, SLOT(onServerStateChanged(bool)));
-    /*connect(mServer, SIGNAL(received(osc::ReceivedMessage)),
-            this, SLOT(onServerMessage(osc::ReceivedMessage)));*/
+    connect(mServer, SIGNAL(stateChanged(int)),
+            this, SLOT(onServerStateChanged(int)));
 
     mServer->subscribe("/server-audio-bus-levels",
                        this, SLOT(onLevelsReceived(osc::ReceivedMessage)));
 }
 
-void ScBusMonitor::onServerStateChanged( bool running )
+void ScBusMonitor::onServerStateChanged( int state )
 {
-    qDebug() << "ScBusMonitor: server running:" << running;
-
-    if (running)
+    if (state == ScServer::Active)
     {
         QString play_bus_monitor =
                 "SynthDef(\"audio-bus-levels\", {"
@@ -57,10 +53,18 @@ void ScBusMonitor::onServerStateChanged( bool running )
 
         mLang->evaluateCode(play_bus_monitor, true);
     }
+    else
+    {
+        mBuffer.clear();
+        emit update();
+    }
 }
 
 void ScBusMonitor::onLevelsReceived( const osc::ReceivedMessage & message )
 {
+    if (!mServer->isActive())
+        return;
+
     //qDebug("ScBusMonitor: server levels received!");
 
     unsigned int arg_count = message.ArgumentCount();
